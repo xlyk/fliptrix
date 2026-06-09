@@ -13,6 +13,9 @@
   #left{top:12px;left:12px;width:206px;max-height:calc(100% - 130px);overflow:auto}
   #left h1{font-size:14px;font-weight:600;margin:0 0 10px;letter-spacing:.4px}
   #left .tricks{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+  .tgroup{grid-column:1/-1;font-size:10px;text-transform:uppercase;letter-spacing:.8px;
+    color:#6f7780;margin-top:7px;border-top:1px solid #2c3137;padding-top:7px;user-select:none}
+  .tgroup:first-child{margin-top:0;border-top:none;padding-top:0}
   #tunebox{margin-top:10px;border-top:1px solid #2c3137;padding-top:8px}
   #tunebox summary{cursor:pointer;font-size:12px;color:#aab2ba;user-select:none}
   .knob{margin-top:7px}
@@ -62,6 +65,24 @@
   #gloss b{color:#e8e6e1;font-weight:600}
   #errbar{position:fixed;top:0;left:0;right:0;background:#a72525;color:#fff;padding:6px 12px;
     font-size:12px;z-index:99;display:none;white-space:pre-wrap}
+  #mbar{display:none}
+  @media (max-width: 760px) {
+    /* side panels become bottom-sheet drawers toggled from a compact top bar */
+    #mbar{display:flex;position:fixed;top:10px;left:10px;gap:8px;z-index:5}
+    #left,#right{display:none;left:8px;right:8px;width:auto;top:auto;bottom:96px;
+      max-height:52vh;overflow:auto;z-index:4}
+    #left.open,#right.open{display:block}
+    #left .tricks button{white-space:normal;min-width:0}
+    #bottom{left:8px;right:8px;transform:none;width:auto;bottom:8px;padding:9px}
+    .grp{padding:4px 7px;gap:6px}
+    .grp .gl{display:none}
+    button{font-size:11px;padding:5px 8px}
+    label.tog{font-size:11px}
+    #speed{width:64px}
+    #slowmoSpeed{width:44px}
+    .ph{font-size:8px;padding-left:3px}
+    #tlabel{width:64px;font-size:10px}
+  }
 </style>
 <script type="importmap">
 {
@@ -75,6 +96,11 @@
 <body>
 <div id="errbar"></div>
 <div id="scene"></div>
+
+<div id="mbar">
+  <button id="mTricks">&#9776; tricks</button>
+  <button id="mInfo">&#9432; info</button>
+</div>
 
 <div class="panel" id="left">
   <h1>FLIPTRIX 3D</h1>
@@ -1111,14 +1137,29 @@ const MIRRORS = { kickflip: 'heelflip', heelflip: 'kickflip', varial: 'varialhee
 function setTrick(k) {
   state.trick = k;
   refreshInfo(); rebuildTune(); rebuildSpinArc(); refreshPhaseMarkers(); syncURL();
+  if (isMobile()) togglePanel(null);  // picking a trick closes the drawer
 }
+// catalog grouped by root trick; flat order also drives the 1-0 hotkeys
+const CATALOG = [
+  ['the base', ['ollie']],
+  ['shove-its', ['shove', 'shove360', 'bigspin']],
+  ['kickflips', ['kickflip', 'varial', 'hardflip', 'tre']],
+  ['heelflips', ['heelflip', 'varialheel', 'inwardheel', 'laser']],
+];
+const KEY_ORDER = CATALOG.flatMap(([, keys]) => keys);
 const trickbar = $('trickbar');
-for (const [key, tr] of Object.entries(TRICKS)) {
-  const b = document.createElement('button');
-  b.dataset.key = key;
-  b.innerHTML = tr.name + '<span class="lvl">' + '&#9679;'.repeat(DIFF[key]) + '</span>';
-  b.onclick = () => setTrick(key);
-  trickbar.appendChild(b);
+for (const [label, keys] of CATALOG) {
+  const h = document.createElement('div');
+  h.className = 'tgroup';
+  h.textContent = label;
+  trickbar.appendChild(h);
+  for (const key of keys) {
+    const b = document.createElement('button');
+    b.dataset.key = key;
+    b.innerHTML = TRICKS[key].name + '<span class="lvl">' + '&#9679;'.repeat(DIFF[key]) + '</span>';
+    b.onclick = () => setTrick(key);
+    trickbar.appendChild(b);
+  }
 }
 
 // timeline phase bands + per-trick event markers (flick contact, catch)
@@ -1149,6 +1190,18 @@ function refreshPhaseMarkers() {
     $('phasebar').appendChild(m);
   }
 }
+
+// mobile: side panels are drawers; opening one closes the other
+const isMobile = () => matchMedia('(max-width: 760px)').matches;
+function togglePanel(id) {
+  for (const p of ['left', 'right'])
+    $(p).classList.toggle('open', p === id && !$(p).classList.contains('open'));
+  document.querySelectorAll('#mbar button').forEach(b =>
+    b.classList.toggle('active', (b.id === 'mTricks' ? 'left' : 'right') === id && $(id)?.classList.contains('open')));
+}
+$('mTricks').onclick = () => togglePanel('left');
+$('mInfo').onclick = () => togglePanel('right');
+if (params.get('panel')) togglePanel(params.get('panel'));
 
 const truckIn = $('truckTight');
 const truckLabel = () => $('truckVal').textContent =
@@ -1286,7 +1339,7 @@ addEventListener('keydown', e => {
     state.playing = false; updatePlayBtn();
   } else if (e.key === 'r') state.t = 0;
   else if (/^[0-9]$/.test(e.key)) {
-    const k = Object.keys(TRICKS)[e.key === '0' ? 9 : +e.key - 1];
+    const k = KEY_ORDER[e.key === '0' ? 9 : +e.key - 1];
     if (k) setTrick(k);
   }
 });
