@@ -761,7 +761,7 @@ scene.add(beach);
 const wallTex = canvasTex(512, (g, S) => {
   const rnd = mulberry(41);
   const gr = g.createLinearGradient(0, 0, 0, S);
-  gr.addColorStop(0, '#17191c'); gr.addColorStop(1, '#26292e');
+  gr.addColorStop(0, '#202329'); gr.addColorStop(1, '#2c2f35');
   g.fillStyle = gr; g.fillRect(0, 0, S, S);
   for (let i = 0; i < 2600; i++) {
     g.fillStyle = rnd() < 0.5 ? 'rgba(0,0,0,0.06)' : 'rgba(255,255,255,0.025)';
@@ -782,16 +782,30 @@ const studioRoom = new THREE.Group();
 {
   // unlit: inward-facing walls light oddly (outward normals), and baked
   // shading keeps the moody studio tone; fog still gives them depth
+  const ceilTex = canvasTex(512, (g, S) => {
+    const rnd = mulberry(47);
+    g.fillStyle = '#1f2226'; g.fillRect(0, 0, S, S);
+    for (let i = 0; i < 1500; i++) {
+      g.fillStyle = rnd() < 0.5 ? 'rgba(0,0,0,0.06)' : 'rgba(255,255,255,0.02)';
+      g.fillRect(rnd() * S, rnd() * S, 2, 2);
+    }
+    g.strokeStyle = 'rgba(0,0,0,0.45)'; g.lineWidth = 6;  // structural beams
+    for (let p = 0; p <= S; p += 128) {
+      g.beginPath(); g.moveTo(p, 0); g.lineTo(p, S); g.stroke();
+      g.beginPath(); g.moveTo(0, p); g.lineTo(S, p); g.stroke();
+    }
+  });
+  ceilTex.repeat.set(3, 3);
   const matWall = new THREE.MeshBasicMaterial({ map: wallTex, side: THREE.BackSide });
-  const matCeil = new THREE.MeshBasicMaterial({ color: 0x16181b, side: THREE.BackSide });
-  const room = new THREE.Mesh(new THREE.BoxGeometry(34, 12, 34),
+  const matCeil = new THREE.MeshBasicMaterial({ map: ceilTex, side: THREE.BackSide });
+  const room = new THREE.Mesh(new THREE.BoxGeometry(34, 9.5, 34),
     [matWall, matWall, matCeil, matCeil, matWall, matWall]);
-  room.position.y = 5.95;   // floor face tucked below the ground plane
+  room.position.y = 4.7;   // floor face tucked below the ground plane
   studioRoom.add(room);
   for (const z of [-6, 0, 6]) {  // hanging light strips
     const strip = new THREE.Mesh(new THREE.BoxGeometry(6, 0.08, 0.5),
       new THREE.MeshBasicMaterial({ color: 0xdfe8ee }));
-    strip.position.set(0, 5.4, z);
+    strip.position.set(0, 4.3, z);
     studioRoom.add(strip);
   }
 }
