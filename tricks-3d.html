@@ -420,7 +420,7 @@ const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x14171a);
 scene.fog = new THREE.Fog(0x14171a, 9, 26);
 
-const camera = new THREE.PerspectiveCamera(45, innerWidth / innerHeight, 0.05, 60);
+const camera = new THREE.PerspectiveCamera(45, innerWidth / innerHeight, 0.05, 250);  // beyond the sky dome (r=85)
 const controls = new OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true;
 controls.maxPolarAngle = Math.PI / 2 - 0.02;
