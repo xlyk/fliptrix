@@ -13,6 +13,7 @@ open `tricks-3d.html` in chrome or safari. single file, no build step, works fro
 - **12 tricks**: ollie, pop shove-it, kickflip, heelflip, varial flip, hardflip, 360 flip, varial heelflip, inward heelflip, laser flip, 360 shove-it, bigspin — each with a nollie variant (pop the nose instead of the tail)
 - **the board**: procedural popsicle deck with steerable trucks, setup lean from foot pressure, tail snap that actually pivots off the ground, and impulse-shaped rotations (the spin loads during the scoop, the flip starts at flick contact)
 - **the rider**: ghost feet in skate shoes (teal = front, coral = back), ik legs with a real loading crouch → extension → tuck → catch sequence, and pressure points that flash at the moment force is applied and leave trails showing the scoop and flick paths
+- **two scenes**: a venice-style beach spot (procedural concrete slabs, sand, ocean, palms, daylight sky — no texture assets, all generated on a canvas) and the original dark studio
 - **the teaching layer**: phase-labeled timeline (setup / pop / flight / catch / land) with per-trick flick and catch markers, cue cards that light up while that foot is working and jump to their moment when clicked, mirror-trick switching, spin-direction arc, and a glossary
 
 | | | |

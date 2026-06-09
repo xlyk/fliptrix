@@ -158,6 +158,10 @@
       <label class="tog"><input type="checkbox" id="roll">roll</label>
       <label class="tog"><input type="checkbox" id="switchst">switch stance</label>
     </div>
+    <div class="grp"><span class="gl">scene</span>
+      <button data-scene="beach">beach</button>
+      <button data-scene="studio">studio</button>
+    </div>
     <div class="grp"><span class="gl">camera</span>
       <button data-cam="three">3-quarter</button>
       <button data-cam="side">side</button>
@@ -445,7 +449,8 @@ controls.addEventListener('start', () => {  // user grabbed the orbit — hands 
   document.querySelectorAll('[data-cam]').forEach(b => b.classList.remove('active'));
 });
 
-scene.add(new THREE.HemisphereLight(0xcfe0ee, 0x4a443c, 0.9));
+const hemi = new THREE.HemisphereLight(0xcfe0ee, 0x4a443c, 0.9);
+scene.add(hemi);
 const sun = new THREE.DirectionalLight(0xfff4e0, 1.7);
 sun.position.set(3, 5.5, 2);
 sun.castShadow = true;
@@ -481,6 +486,156 @@ const blob = new THREE.Mesh(
 blob.rotation.x = -Math.PI / 2;
 blob.position.y = 0.002;
 scene.add(blob);
+
+/* ================================================================== */
+/* ENVIRONMENTS — procedural canvas textures, no assets               */
+/* ================================================================== */
+// seeded prng: env layout must be deterministic (screenshot testing)
+const mulberry = s => () => {
+  s |= 0; s = s + 0x6D2B79F5 | 0;
+  let t = Math.imul(s ^ s >>> 15, 1 | s);
+  t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+  return ((t ^ t >>> 14) >>> 0) / 4294967296;
+};
+function canvasTex(size, draw) {
+  const c = document.createElement('canvas');
+  c.width = c.height = size;
+  draw(c.getContext('2d'), size);
+  const tex = new THREE.CanvasTexture(c);
+  tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+  tex.anisotropy = 8;
+  return tex;
+}
+const concreteTex = canvasTex(512, (g, S) => {
+  const rnd = mulberry(7);
+  g.fillStyle = '#b3afa6'; g.fillRect(0, 0, S, S);
+  for (let i = 0; i < 9000; i++) {  // aggregate speckle
+    g.fillStyle = rnd() < 0.5 ? 'rgba(60,58,52,0.07)' : 'rgba(242,240,232,0.06)';
+    g.fillRect(rnd() * S, rnd() * S, 1 + rnd() * 1.5, 1 + rnd() * 1.5);
+  }
+  for (let i = 0; i < 6; i++) {     // weather blotches
+    const x = rnd() * S, y = rnd() * S, r = 30 + rnd() * 80;
+    const gr = g.createRadialGradient(x, y, 0, x, y, r);
+    gr.addColorStop(0, 'rgba(70,66,60,0.05)');
+    gr.addColorStop(1, 'rgba(70,66,60,0)');
+    g.fillStyle = gr; g.fillRect(x - r, y - r, r * 2, r * 2);
+  }
+  g.strokeStyle = 'rgba(50,48,44,0.16)'; g.lineWidth = 1;
+  for (let i = 0; i < 4; i++) {     // hairline cracks
+    g.beginPath();
+    let x = rnd() * S, y = rnd() * S;
+    g.moveTo(x, y);
+    for (let j = 0; j < 8; j++) { x += (rnd() - 0.5) * 60; y += (rnd() - 0.5) * 60; g.lineTo(x, y); }
+    g.stroke();
+  }
+  g.fillStyle = 'rgba(88,84,78,0.5)';  // expansion joints → repeating slabs
+  g.fillRect(0, 0, S, 3);
+  g.fillRect(0, 0, 3, S);
+});
+const oceanTex = canvasTex(256, (g, S) => {
+  const rnd = mulberry(11);
+  g.fillStyle = '#2a7d9c'; g.fillRect(0, 0, S, S);
+  for (let i = 0; i < 80; i++) {
+    g.fillStyle = `rgba(255,255,255,${0.03 + rnd() * 0.07})`;
+    g.fillRect(0, rnd() * S, S, 1 + rnd() * 2);
+  }
+});
+const skyTex = canvasTex(256, (g, S) => {
+  const gr = g.createLinearGradient(0, 0, 0, S);
+  gr.addColorStop(0, '#5fb0e6');
+  gr.addColorStop(0.55, '#a8d6ef');
+  gr.addColorStop(0.8, '#eaf4ef');
+  gr.addColorStop(1, '#f6ead8');
+  g.fillStyle = gr; g.fillRect(0, 0, S, S);
+});
+
+function buildPalm(rnd, x, z, h) {
+  const g = new THREE.Group();
+  const trunkMat = new THREE.MeshStandardMaterial({ color: 0x8a6f52, roughness: 0.95 });
+  const lean = 0.12 + rnd() * 0.25, leanDir = rnd() * Math.PI * 2;
+  let p = new THREE.Vector3(0, 0, 0);
+  let dir = new THREE.Vector3(Math.sin(leanDir) * lean, 1, Math.cos(leanDir) * lean).normalize();
+  const SEG = 6;
+  for (let i = 0; i < SEG; i++) {
+    const r0 = 0.16 * (1 - (i / SEG) * 0.55);
+    const seg = new THREE.Mesh(new THREE.CylinderGeometry(r0 * 0.85, r0, h / SEG, 7), trunkMat);
+    const next = p.clone().add(dir.clone().multiplyScalar(h / SEG));
+    seg.position.copy(p).lerp(next, 0.5);
+    seg.quaternion.setFromUnitVectors(Y_AXIS, dir);
+    g.add(seg);
+    p = next;
+    dir = dir.clone().add(new THREE.Vector3(Math.sin(leanDir) * 0.05, 0, Math.cos(leanDir) * 0.05)).normalize();
+  }
+  const frondMat = new THREE.MeshStandardMaterial({ color: 0x2f7a44, roughness: 0.9, side: THREE.DoubleSide });
+  for (let i = 0; i < 9; i++) {
+    const fg = new THREE.PlaneGeometry(0.36, 2.4, 1, 6);
+    const pp = fg.attributes.position;
+    for (let v = 0; v < pp.count; v++) {
+      const yy = pp.getY(v) + 1.2;                 // 0..2.4 along the frond
+      pp.setZ(v, -(yy * yy) * 0.16);               // droop
+      pp.setX(v, pp.getX(v) * (1 - yy / 2.9));     // taper to the tip
+    }
+    fg.translate(0, 1.2, 0);
+    fg.computeVertexNormals();
+    const f = new THREE.Mesh(fg, frondMat);
+    f.position.copy(p);
+    f.rotation.order = 'YXZ';
+    f.rotation.y = (i / 9) * Math.PI * 2 + rnd() * 0.5;
+    f.rotation.x = -1.0 + rnd() * 0.35;            // splay outward-down
+    g.add(f);
+  }
+  for (let i = 0; i < 3; i++) {
+    const c = new THREE.Mesh(new THREE.SphereGeometry(0.09, 8, 6), trunkMat);
+    c.position.copy(p).add(new THREE.Vector3((rnd() - 0.5) * 0.3, -0.15, (rnd() - 0.5) * 0.3));
+    g.add(c);
+  }
+  g.position.set(x, 0, z);
+  return g;
+}
+
+// beach: concrete spot, sand strip, ocean to the heel side, palms, sky dome
+const beach = new THREE.Group();
+beach.add(new THREE.Mesh(new THREE.SphereGeometry(85, 24, 12),
+  new THREE.MeshBasicMaterial({ map: skyTex, side: THREE.BackSide, fog: false })));
+const concrete = new THREE.Mesh(new THREE.PlaneGeometry(64, 30),
+  new THREE.MeshStandardMaterial({ map: concreteTex, roughness: 0.96 }));
+concreteTex.repeat.set(20, 9);
+concrete.rotation.x = -Math.PI / 2;
+concrete.position.set(5, 0, 0);
+concrete.receiveShadow = true;
+beach.add(concrete);
+const sand = new THREE.Mesh(new THREE.PlaneGeometry(8, 64),
+  new THREE.MeshStandardMaterial({ color: 0xd9c49b, roughness: 1 }));
+sand.rotation.x = -Math.PI / 2;
+sand.position.set(-15, -0.01, 0);
+beach.add(sand);
+const ocean = new THREE.Mesh(new THREE.PlaneGeometry(52, 70),
+  new THREE.MeshStandardMaterial({ map: oceanTex, roughness: 0.35, metalness: 0.1 }));
+oceanTex.repeat.set(10, 14);
+ocean.rotation.x = -Math.PI / 2;
+ocean.position.set(-45, -0.05, 0);
+beach.add(ocean);
+const rndPalm = mulberry(23);
+for (let i = 0; i < 6; i++)
+  beach.add(buildPalm(rndPalm, -13.5 - rndPalm() * 3, -22 + i * 8.5 + rndPalm() * 3, 3.6 + rndPalm() * 1.8));
+beach.visible = false;
+scene.add(beach);
+
+const ENV = {
+  studio: { bg: 0x14171a, fog: [0x14171a, 9, 26], hemi: [0xcfe0ee, 0x4a443c, 0.9], sun: 1.7 },
+  beach:  { bg: null, fog: [0xdceef5, 18, 80], hemi: [0xd6ecf7, 0x8a7a5e, 1.05], sun: 1.9 },
+};
+function setSceneEnv(name) {
+  state.scene = name;
+  const e = ENV[name];
+  beach.visible = name === 'beach';
+  ground.visible = grid.visible = name === 'studio';
+  scene.background = e.bg === null ? null : new THREE.Color(e.bg);
+  scene.fog.color.set(e.fog[0]); scene.fog.near = e.fog[1]; scene.fog.far = e.fog[2];
+  hemi.color.set(e.hemi[0]); hemi.groundColor.set(e.hemi[1]); hemi.intensity = e.hemi[2];
+  sun.intensity = e.sun;
+  document.querySelectorAll('[data-scene]').forEach(b => b.classList.toggle('active', b.dataset.scene === name));
+}
 
 /* ================================================================== */
 /* BOARD BUILD                                                        */
@@ -1324,6 +1479,8 @@ $('scrub').onpointerdown = () => scrubWasPlaying = state.playing;
 $('scrub').oninput = e => { state.t = parseFloat(e.target.value); state.playing = false; updatePlayBtn(); };
 $('scrub').onchange = () => { if (scrubWasPlaying) { state.playing = true; updatePlayBtn(); } };
 document.querySelectorAll('[data-cam]').forEach(b => b.onclick = () => { setCam(b.dataset.cam); syncURL(); });
+document.querySelectorAll('[data-scene]').forEach(b => b.onclick = () => { setSceneEnv(b.dataset.scene); syncURL(); });
+setSceneEnv(params.get('scene') === 'studio' ? 'studio' : 'beach');
 $('mirrorBtn').onclick = () => setTrick(MIRRORS[state.trick]);
 $('ghosts').checked = state.ghosts;
 $('ghosts').onchange = e => { state.ghosts = e.target.checked; syncURL(); };
@@ -1358,6 +1515,7 @@ function syncURL() {
   const p = new URLSearchParams();
   p.set('trick', state.trick);
   if (curCam && curCam !== 'three') p.set('cam', curCam);
+  if (state.scene !== 'beach') p.set('scene', state.scene);
   if (state.switchStance) p.set('stance', 'switch');
   for (const [key, param] of [['feet', 'feet'], ['legs', 'legs'], ['pressure', 'pressure']])
     if (!state[key]) p.set(param, '0');
