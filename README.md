@@ -2,6 +2,8 @@
 
 interactive 3d visualizer for skateboard flip tricks — a kinematic teaching tool that shows exactly what the board, feet, and legs do through every phase of a trick.
 
+**live: [xlyk.github.io/fliptrix](https://xlyk.github.io/fliptrix/)**
+
 ![kickflip mid-flip](docs/hero.png)
 
 open `tricks-3d.html` in chrome or safari. single file, no build step, works from `file://` — the only network dependency is the three.js cdn.
