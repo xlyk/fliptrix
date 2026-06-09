@@ -642,13 +642,20 @@ concrete.receiveShadow = true;
 grassTex.repeat.set(2, 40);
 flat(new THREE.PlaneGeometry(3, 64), new THREE.MeshStandardMaterial({ map: grassTex, roughness: 1 }), -7.5, -0.005);
 const lawnTex = grassTex.clone();
+lawnTex.needsUpdate = true;  // cloned CanvasTextures don't auto-upload
 lawnTex.repeat.set(12, 40);
-flat(new THREE.PlaneGeometry(20, 64), new THREE.MeshStandardMaterial({ map: lawnTex, roughness: 1 }), 24, -0.005);
+const matLawn = new THREE.MeshStandardMaterial({ map: lawnTex, roughness: 1 });
+flat(new THREE.PlaneGeometry(20, 64), matLawn, 24, -0.005);
+// grass caps on the plaza's ends (the plaza is 30 long, the strips are 64)
+for (const ze of [23.5, -23.5]) {
+  const cap = flat(new THREE.PlaneGeometry(20, 17), matLawn, 4, -0.005);
+  cap.position.z = ze;
+}
 plankTex.repeat.set(1, 48);
 flat(new THREE.PlaneGeometry(3.5, 64), new THREE.MeshStandardMaterial({ map: plankTex, roughness: 0.9 }), -10.75, 0.015);
 flat(new THREE.PlaneGeometry(10, 64), new THREE.MeshStandardMaterial({ color: 0xd9c49b, roughness: 1 }), -17.5, -0.01);
 oceanTex.repeat.set(10, 14);
-flat(new THREE.PlaneGeometry(50, 70), new THREE.MeshStandardMaterial({ map: oceanTex, roughness: 0.35, metalness: 0.1 }), -47.5, -0.05);
+flat(new THREE.PlaneGeometry(50, 64), new THREE.MeshStandardMaterial({ map: oceanTex, roughness: 0.35, metalness: 0.1 }), -47.5, -0.05);
 
 // palms live in the sand and the grass strip — never in concrete
 const rndE = mulberry(23);
@@ -731,6 +738,7 @@ const windowTex = canvasTex(256, (g, S) => {
 const B_COLS = [0xd96a4a, 0x4f9fb3, 0xd9b14a, 0x9a7fae, 0xc2576e, 0x6aa56f];
 function building(x, z, w, d, h, color, rotY = 0) {
   const tex = windowTex.clone();
+  tex.needsUpdate = true;
   tex.repeat.set(Math.max(1, w / 9), Math.max(1, h / 7));  // ~1.5m windows
   const matFace = new THREE.MeshStandardMaterial({ map: tex, color, roughness: 0.9 });
   const matRoof = new THREE.MeshStandardMaterial({ color: 0x4a4742, roughness: 1 });
