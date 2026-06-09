@@ -502,6 +502,7 @@ function canvasTex(size, draw) {
   c.width = c.height = size;
   draw(c.getContext('2d'), size);
   const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;  // canvas colors are authored in sRGB
   tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
   tex.anisotropy = 8;
   return tex;
@@ -717,18 +718,95 @@ for (let i = 0; i < 6; i++) {
   beach.add(t);
 }
 
+// venice storefront row behind the lawn — the beach's "walls"
+const windowTex = canvasTex(256, (g, S) => {
+  const rnd = mulberry(53);
+  g.fillStyle = '#ece6da'; g.fillRect(0, 0, S, S);
+  for (let y = 18; y < S - 24; y += 44)
+    for (let x = 14; x < S - 24; x += 36) {
+      g.fillStyle = rnd() < 0.25 ? '#cfd8de' : '#2b3a44';
+      g.fillRect(x, y, 22, 28);
+    }
+});
+const B_COLS = [0xd96a4a, 0x4f9fb3, 0xd9b14a, 0x9a7fae, 0xc2576e, 0x6aa56f];
+function building(x, z, w, d, h, color, rotY = 0) {
+  const tex = windowTex.clone();
+  tex.repeat.set(Math.max(1, w / 9), Math.max(1, h / 7));  // ~1.5m windows
+  const matFace = new THREE.MeshStandardMaterial({ map: tex, color, roughness: 0.9 });
+  const matRoof = new THREE.MeshStandardMaterial({ color: 0x4a4742, roughness: 1 });
+  const b = new THREE.Mesh(new THREE.BoxGeometry(d, h, w),
+    [matFace, matFace, matRoof, matRoof, matFace, matFace]);
+  b.position.set(x, h / 2, z);
+  b.rotation.y = rotY;
+  beach.add(b);
+}
+const rndB = mulberry(67);
+let bz = -30;
+while (bz < 28) {  // main row facing the ocean
+  const w = 5 + rndB() * 4, h = 4.5 + rndB() * 4;
+  building(30 + rndB() * 2, bz + w / 2, w, 5 + rndB() * 3, h, B_COLS[(rndB() * B_COLS.length) | 0]);
+  bz += w + 0.8;
+}
+for (const ze of [-31, 31]) {  // close the plaza's long sight lines
+  building(4, ze, 16, 6, 5 + rndB() * 2, B_COLS[(rndB() * B_COLS.length) | 0], Math.PI / 2);
+  const hedge = new THREE.Mesh(new THREE.BoxGeometry(17, 1.1, 1.4), matBush);
+  hedge.position.set(-14, 0.55, ze);
+  beach.add(hedge);
+}
+
 beach.visible = false;
 scene.add(beach);
 
+// studio room: enclosed warehouse walls instead of endless black
+const wallTex = canvasTex(512, (g, S) => {
+  const rnd = mulberry(41);
+  const gr = g.createLinearGradient(0, 0, 0, S);
+  gr.addColorStop(0, '#17191c'); gr.addColorStop(1, '#26292e');
+  g.fillStyle = gr; g.fillRect(0, 0, S, S);
+  for (let i = 0; i < 2600; i++) {
+    g.fillStyle = rnd() < 0.5 ? 'rgba(0,0,0,0.06)' : 'rgba(255,255,255,0.025)';
+    g.fillRect(rnd() * S, rnd() * S, 2, 2);
+  }
+  g.strokeStyle = 'rgba(0,0,0,0.35)'; g.lineWidth = 2;   // panel seams
+  for (let x = 0; x <= S; x += 128) { g.beginPath(); g.moveTo(x, 0); g.lineTo(x, S); g.stroke(); }
+  g.beginPath(); g.moveTo(0, S / 2); g.lineTo(S, S / 2); g.stroke();
+  for (let i = 0; i < 5; i++) {                          // stains
+    const x = rnd() * S, y = rnd() * S, r = 40 + rnd() * 70;
+    const rg = g.createRadialGradient(x, y, 0, x, y, r);
+    rg.addColorStop(0, 'rgba(0,0,0,0.10)'); rg.addColorStop(1, 'rgba(0,0,0,0)');
+    g.fillStyle = rg; g.fillRect(x - r, y - r, 2 * r, 2 * r);
+  }
+});
+wallTex.repeat.set(3, 1);
+const studioRoom = new THREE.Group();
+{
+  // unlit: inward-facing walls light oddly (outward normals), and baked
+  // shading keeps the moody studio tone; fog still gives them depth
+  const matWall = new THREE.MeshBasicMaterial({ map: wallTex, side: THREE.BackSide });
+  const matCeil = new THREE.MeshBasicMaterial({ color: 0x16181b, side: THREE.BackSide });
+  const room = new THREE.Mesh(new THREE.BoxGeometry(34, 12, 34),
+    [matWall, matWall, matCeil, matCeil, matWall, matWall]);
+  room.position.y = 5.95;   // floor face tucked below the ground plane
+  studioRoom.add(room);
+  for (const z of [-6, 0, 6]) {  // hanging light strips
+    const strip = new THREE.Mesh(new THREE.BoxGeometry(6, 0.08, 0.5),
+      new THREE.MeshBasicMaterial({ color: 0xdfe8ee }));
+    strip.position.set(0, 5.4, z);
+    studioRoom.add(strip);
+  }
+}
+scene.add(studioRoom);
+controls.maxDistance = 13;  // keep the orbit inside the room
+
 const ENV = {
-  studio: { bg: 0x14171a, fog: [0x14171a, 9, 26], hemi: [0xcfe0ee, 0x4a443c, 0.9], sun: 1.7 },
+  studio: { bg: 0x191c1f, fog: [0x191c1f, 12, 44], hemi: [0xcfe0ee, 0x4a443c, 0.9], sun: 1.7 },
   beach:  { bg: null, fog: [0xdceef5, 18, 80], hemi: [0xd6ecf7, 0x8a7a5e, 1.05], sun: 1.9 },
 };
 function setSceneEnv(name) {
   state.scene = name;
   const e = ENV[name];
   beach.visible = name === 'beach';
-  ground.visible = grid.visible = name === 'studio';
+  studioRoom.visible = ground.visible = grid.visible = name === 'studio';
   scene.background = e.bg === null ? null : new THREE.Color(e.bg);
   scene.fog.color.set(e.fog[0]); scene.fog.near = e.fog[1]; scene.fog.far = e.fog[2];
   hemi.color.set(e.hemi[0]); hemi.groundColor.set(e.hemi[1]); hemi.intensity = e.hemi[2];
