@@ -159,8 +159,8 @@
       <label class="tog"><input type="checkbox" id="switchst">switch stance</label>
     </div>
     <div class="grp"><span class="gl">scene</span>
-      <button data-scene="beach">beach</button>
       <button data-scene="studio">studio</button>
+      <button data-scene="beach">beach</button>
     </div>
     <div class="grp"><span class="gl">camera</span>
       <button data-cam="three">3-quarter</button>
@@ -593,31 +593,130 @@ function buildPalm(rnd, x, z, h) {
   return g;
 }
 
-// beach: concrete spot, sand strip, ocean to the heel side, palms, sky dome
+// extra ground textures
+const grassTex = canvasTex(256, (g, S) => {
+  const rnd = mulberry(17);
+  g.fillStyle = '#5e8a4a'; g.fillRect(0, 0, S, S);
+  for (let i = 0; i < 5200; i++) {
+    g.fillStyle = rnd() < 0.5 ? 'rgba(40,80,35,0.13)' : 'rgba(155,195,110,0.10)';
+    g.fillRect(rnd() * S, rnd() * S, 1.5, 2.5);
+  }
+});
+const plankTex = canvasTex(256, (g, S) => {
+  const rnd = mulberry(31);
+  const w = S / 6;
+  for (let i = 0; i < 6; i++) {
+    g.fillStyle = `rgb(${122 + rnd() * 28 | 0},${90 + rnd() * 20 | 0},${60 + rnd() * 14 | 0})`;
+    g.fillRect(0, i * w, S, w - 2);
+    g.strokeStyle = 'rgba(60,40,25,0.25)';
+    for (let j = 0; j < 3; j++) {
+      g.beginPath();
+      const y = i * w + rnd() * (w - 2);
+      g.moveTo(0, y); g.lineTo(S, y + (rnd() - 0.5) * 4);
+      g.stroke();
+    }
+  }
+});
+
+// venice-style layout, heel side toward the water:
+// lawn | plaza (skate spot) | grass | boardwalk | sand | ocean
 const beach = new THREE.Group();
 beach.add(new THREE.Mesh(new THREE.SphereGeometry(85, 24, 12),
   new THREE.MeshBasicMaterial({ map: skyTex, side: THREE.BackSide, fog: false })));
-const concrete = new THREE.Mesh(new THREE.PlaneGeometry(64, 30),
-  new THREE.MeshStandardMaterial({ map: concreteTex, roughness: 0.96 }));
-concreteTex.repeat.set(20, 9);
-concrete.rotation.x = -Math.PI / 2;
-concrete.position.set(5, 0, 0);
+const flat = (geo, mat, x, y = 0) => {
+  const m = new THREE.Mesh(geo, mat);
+  m.rotation.x = -Math.PI / 2;
+  m.position.set(x, y, 0);
+  beach.add(m);
+  return m;
+};
+const matWood = new THREE.MeshStandardMaterial({ color: 0x7a5c40, roughness: 0.9 });
+const matBush = new THREE.MeshStandardMaterial({ color: 0x3a7a44, roughness: 0.95 });
+const matStone = new THREE.MeshStandardMaterial({ color: 0x9b968c, roughness: 0.95 });
+
+concreteTex.repeat.set(6, 9);
+const concrete = flat(new THREE.PlaneGeometry(20, 30),
+  new THREE.MeshStandardMaterial({ map: concreteTex, roughness: 0.96 }), 4);
 concrete.receiveShadow = true;
-beach.add(concrete);
-const sand = new THREE.Mesh(new THREE.PlaneGeometry(8, 64),
-  new THREE.MeshStandardMaterial({ color: 0xd9c49b, roughness: 1 }));
-sand.rotation.x = -Math.PI / 2;
-sand.position.set(-15, -0.01, 0);
-beach.add(sand);
-const ocean = new THREE.Mesh(new THREE.PlaneGeometry(52, 70),
-  new THREE.MeshStandardMaterial({ map: oceanTex, roughness: 0.35, metalness: 0.1 }));
+grassTex.repeat.set(2, 40);
+flat(new THREE.PlaneGeometry(3, 64), new THREE.MeshStandardMaterial({ map: grassTex, roughness: 1 }), -7.5, -0.005);
+const lawnTex = grassTex.clone();
+lawnTex.repeat.set(12, 40);
+flat(new THREE.PlaneGeometry(20, 64), new THREE.MeshStandardMaterial({ map: lawnTex, roughness: 1 }), 24, -0.005);
+plankTex.repeat.set(1, 48);
+flat(new THREE.PlaneGeometry(3.5, 64), new THREE.MeshStandardMaterial({ map: plankTex, roughness: 0.9 }), -10.75, 0.015);
+flat(new THREE.PlaneGeometry(10, 64), new THREE.MeshStandardMaterial({ color: 0xd9c49b, roughness: 1 }), -17.5, -0.01);
 oceanTex.repeat.set(10, 14);
-ocean.rotation.x = -Math.PI / 2;
-ocean.position.set(-45, -0.05, 0);
-beach.add(ocean);
-const rndPalm = mulberry(23);
-for (let i = 0; i < 6; i++)
-  beach.add(buildPalm(rndPalm, -13.5 - rndPalm() * 3, -22 + i * 8.5 + rndPalm() * 3, 3.6 + rndPalm() * 1.8));
+flat(new THREE.PlaneGeometry(50, 70), new THREE.MeshStandardMaterial({ map: oceanTex, roughness: 0.35, metalness: 0.1 }), -47.5, -0.05);
+
+// palms live in the sand and the grass strip — never in concrete
+const rndE = mulberry(23);
+for (const z of [-24, -9, 6, 21])
+  beach.add(buildPalm(rndE, -14.5 - rndE() * 2, z + rndE() * 3, 3.8 + rndE() * 1.8));
+for (const z of [-16, 1, 15])
+  beach.add(buildPalm(rndE, -7.6 + (rndE() - 0.5) * 0.6, z + rndE() * 2, 3.4 + rndE() * 1.4));
+
+// boardwalk benches facing the water
+for (const z of [-5, 9]) {
+  const b = new THREE.Group();
+  const seat = new THREE.Mesh(new THREE.BoxGeometry(0.45, 0.06, 1.5), matWood);
+  seat.position.y = 0.45;
+  const back = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.5, 1.5), matWood);
+  back.position.set(0.24, 0.72, 0);
+  back.rotation.z = 0.15;
+  b.add(seat, back);
+  for (const lz of [-0.6, 0.6]) {
+    const leg = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.45, 0.08), matWood);
+    leg.position.set(0, 0.22, lz);
+    b.add(leg);
+  }
+  b.position.set(-10.75, 0.015, z);
+  beach.add(b);
+}
+
+// planters with bushes along the plaza's far edge
+for (const z of [-10, 0, 10]) {
+  const box = new THREE.Mesh(new THREE.BoxGeometry(1.1, 0.45, 1.1), matStone);
+  box.position.set(13.4, 0.22, z);
+  beach.add(box);
+  for (let i = 0; i < 3; i++) {
+    const bush = new THREE.Mesh(new THREE.SphereGeometry(0.32 + rndE() * 0.14, 8, 6), matBush);
+    bush.position.set(13.4 + (rndE() - 0.5) * 0.5, 0.6, z + (rndE() - 0.5) * 0.5);
+    bush.scale.y = 0.75;
+    beach.add(bush);
+  }
+}
+
+// rocks at the waterline
+for (let i = 0; i < 6; i++) {
+  const rock = new THREE.Mesh(new THREE.DodecahedronGeometry(0.25 + rndE() * 0.35), matStone);
+  rock.position.set(-21.8 + rndE(), 0.05, -28 + i * 11 + rndE() * 4);
+  rock.rotation.set(rndE() * 3, rndE() * 3, rndE() * 3);
+  beach.add(rock);
+}
+
+// venice lifeguard tower out on the sand
+{
+  const t = new THREE.Group();
+  const matTower = new THREE.MeshStandardMaterial({ color: 0x3a8fb5, roughness: 0.7 });
+  for (const [lx, lz] of [[-0.6, -0.6], [-0.6, 0.6], [0.6, -0.6], [0.6, 0.6]]) {
+    const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, 1.9, 8), matWood);
+    leg.position.set(lx, 0.95, lz);
+    t.add(leg);
+  }
+  const hut = new THREE.Mesh(new THREE.BoxGeometry(1.7, 1.25, 1.7), matTower);
+  hut.position.y = 2.45;
+  const roof = new THREE.Mesh(new THREE.BoxGeometry(2.1, 0.1, 2.1), new THREE.MeshStandardMaterial({ color: 0xe8e2d2, roughness: 0.8 }));
+  roof.position.y = 3.15;
+  const ramp = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.06, 3.4), matWood);
+  ramp.position.set(0, 1.05, 2.4);
+  ramp.rotation.x = 0.55;
+  t.add(hut, roof, ramp);
+  t.position.set(-18, 0, -26);
+  t.rotation.y = 0.5;
+  beach.add(t);
+}
+
 beach.visible = false;
 scene.add(beach);
 
@@ -1480,7 +1579,7 @@ $('scrub').oninput = e => { state.t = parseFloat(e.target.value); state.playing 
 $('scrub').onchange = () => { if (scrubWasPlaying) { state.playing = true; updatePlayBtn(); } };
 document.querySelectorAll('[data-cam]').forEach(b => b.onclick = () => { setCam(b.dataset.cam); syncURL(); });
 document.querySelectorAll('[data-scene]').forEach(b => b.onclick = () => { setSceneEnv(b.dataset.scene); syncURL(); });
-setSceneEnv(params.get('scene') === 'studio' ? 'studio' : 'beach');
+setSceneEnv(params.get('scene') === 'beach' ? 'beach' : 'studio');
 $('mirrorBtn').onclick = () => setTrick(MIRRORS[state.trick]);
 $('ghosts').checked = state.ghosts;
 $('ghosts').onchange = e => { state.ghosts = e.target.checked; syncURL(); };
@@ -1515,7 +1614,7 @@ function syncURL() {
   const p = new URLSearchParams();
   p.set('trick', state.trick);
   if (curCam && curCam !== 'three') p.set('cam', curCam);
-  if (state.scene !== 'beach') p.set('scene', state.scene);
+  if (state.scene !== 'studio') p.set('scene', state.scene);
   if (state.switchStance) p.set('stance', 'switch');
   for (const [key, param] of [['feet', 'feet'], ['legs', 'legs'], ['pressure', 'pressure']])
     if (!state[key]) p.set(param, '0');
