@@ -1,0 +1,249 @@
+<style>
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);border:0}
+.skw{font-family:system-ui,-apple-system,'Segoe UI',sans-serif;color:var(--color-text-primary,#26251F)}
+.skw .trickbar{display:flex;flex-wrap:wrap;gap:8px;margin:1rem 0 0.6rem}
+.skw .toggles{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:0 0 0.6rem;font-size:13px;color:var(--color-text-secondary,#6E6B62)}
+.skw button{font:inherit;font-size:13px;padding:6px 12px;border-radius:8px;border:1px solid var(--color-border-secondary,#D6D2C8);background:var(--color-background-primary,#FBFAF7);color:var(--color-text-primary,#26251F);cursor:pointer}
+.skw button.active{border-color:var(--color-border-info,#3B6FD4);background:var(--color-background-info,#E8F0FE);color:var(--color-text-info,#2456B3)}
+.skw .cuecard{background:var(--color-background-secondary,#F1EFE9);border-radius:var(--border-radius-md,10px);padding:11px 14px}
+.skw .cuelabel{font-size:12px;color:var(--color-text-secondary,#6E6B62);margin:0 0 4px;display:flex;align-items:center;gap:7px}
+.skw .cueval{font-size:14px;line-height:1.55;margin:0;color:var(--color-text-primary,#26251F)}
+.skw .dot{width:11px;height:11px;border-radius:50%;display:inline-block;flex:0 0 auto}
+.skw .ts{font-size:13px;fill:var(--color-text-secondary,#6E6B62)}
+.skw .leader{stroke:var(--color-border-secondary,#C9C5BA);stroke-width:1}
+.skw .legend{font-size:12px;color:var(--color-text-secondary,#6E6B62);text-align:center;margin:4px 0 1rem}
+</style>
+<div class="skw">
+<h2 class="sr-only">Interactive top-down diagram of skateboard foot placement for ten flip tricks with pressure and lean layers, regular stance. Backside scoops start from the toe-side tail pocket; frontside scoops push forward from the heel-side pocket.</h2>
+
+<div class="trickbar">
+  <button data-key="ollie" onclick="applyTrick('ollie')">Ollie</button>
+  <button data-key="shove" onclick="applyTrick('shove')">Pop shove-it</button>
+  <button data-key="kickflip" class="active" onclick="applyTrick('kickflip')">Kickflip</button>
+  <button data-key="heelflip" onclick="applyTrick('heelflip')">Heelflip</button>
+  <button data-key="varial" onclick="applyTrick('varial')">Varial flip</button>
+  <button data-key="hardflip" onclick="applyTrick('hardflip')">Hardflip</button>
+  <button data-key="tre" onclick="applyTrick('tre')">360 flip</button>
+  <button data-key="varialheel" onclick="applyTrick('varialheel')">Varial heel</button>
+  <button data-key="inwardheel" onclick="applyTrick('inwardheel')">Inward heel</button>
+  <button data-key="laser" onclick="applyTrick('laser')">Laser flip</button>
+</div>
+
+<div class="toggles">
+  <span>Layers:</span>
+  <button id="tgPressure" class="active" onclick="toggleLayer('p')">Pressure</button>
+  <button id="tgLean" onclick="toggleLayer('l')">Lean &amp; balance</button>
+</div>
+
+<svg width="100%" viewBox="0 0 680 636" role="img">
+  <title>Top-down skateboard foot placement diagram with pressure and lean layers</title>
+  <desc>A skateboard seen from above, nose at top and tail at bottom, showing front and back foot positions, pop, scoop and flick directions, optional pressure discs sized by weight on each foot, and an optional body-balance indicator. Backside scoops sweep from the toe-side tail pocket back toward the heel side; frontside scoops push the tail forward toward the toe side.</desc>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M2 1L8 5L2 9" fill="none" stroke="context-stroke" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></marker>
+  </defs>
+
+  <rect x="270" y="72" width="140" height="516" rx="70" fill="var(--color-background-secondary,#EDEAE1)" stroke="var(--color-border-secondary,#C9C5BA)" stroke-width="1"/>
+  <path d="M276 135 H404" stroke="var(--color-text-secondary,#6E6B62)" stroke-width="0.5" opacity="0.25"/>
+  <path d="M276 525 H404" stroke="var(--color-text-secondary,#6E6B62)" stroke-width="0.5" opacity="0.25"/>
+  <line x1="340" y1="120" x2="340" y2="540" stroke="var(--color-text-secondary,#6E6B62)" stroke-width="0.5" stroke-dasharray="4 5" opacity="0.3"/>
+  <circle cx="315" cy="170" r="4" fill="var(--color-text-secondary,#6E6B62)" opacity="0.45"/>
+  <circle cx="365" cy="170" r="4" fill="var(--color-text-secondary,#6E6B62)" opacity="0.45"/>
+  <circle cx="315" cy="490" r="4" fill="var(--color-text-secondary,#6E6B62)" opacity="0.45"/>
+  <circle cx="365" cy="490" r="4" fill="var(--color-text-secondary,#6E6B62)" opacity="0.45"/>
+
+  <g id="leanLayer" style="display:none">
+    <rect x="333" y="334" width="14" height="80" rx="7" fill="#7F77DD" opacity="0.22"/>
+    <circle cx="340" cy="374" r="11" fill="none" stroke="#7F77DD" stroke-width="1.5"/>
+    <line x1="328" y1="374" x2="352" y2="374" stroke="#7F77DD" stroke-width="1"/>
+    <line x1="340" y1="362" x2="340" y2="386" stroke="#7F77DD" stroke-width="1"/>
+    <circle cx="340" cy="374" r="3.5" fill="#7F77DD"/>
+  </g>
+
+  <g id="frontFoot" transform="translate(322 226) rotate(42)">
+    <rect x="-26" y="-64" width="52" height="128" rx="24" fill="#1D9E75" fill-opacity="0.22" stroke="#1D9E75" stroke-width="1.5"/>
+    <line x1="-14" y1="-54" x2="14" y2="-54" stroke="#1D9E75" stroke-width="3.5" stroke-linecap="round"/>
+    <g id="fpZone">
+      <circle id="fpDisc" cx="0" cy="-36" r="13" fill="#1D9E75" opacity="0.35"/>
+      <circle cx="0" cy="-36" r="3" fill="#1D9E75"/>
+    </g>
+  </g>
+  <g id="backFoot" transform="translate(338 546) rotate(108)">
+    <rect x="-26" y="-64" width="52" height="128" rx="24" fill="#D85A30" fill-opacity="0.22" stroke="#D85A30" stroke-width="1.5"/>
+    <line x1="-14" y1="-54" x2="14" y2="-54" stroke="#D85A30" stroke-width="3.5" stroke-linecap="round"/>
+    <g id="bpZone">
+      <circle id="bpDisc" cx="0" cy="-40" r="20" fill="#D85A30" opacity="0.35"/>
+      <circle cx="0" cy="-40" r="3" fill="#D85A30"/>
+    </g>
+  </g>
+
+  <line id="popArrow" x1="340" y1="572" x2="340" y2="590" stroke="#D85A30" stroke-width="2.5" marker-end="url(#arrow)" style="display:''"/>
+  <line id="dragArrow" x1="338" y1="202" x2="338" y2="134" stroke="#1D9E75" stroke-width="2" marker-end="url(#arrow)" style="display:none"/>
+  <line id="liftArrow" x1="340" y1="196" x2="340" y2="164" stroke="#1D9E75" stroke-width="2" stroke-dasharray="5 4" marker-end="url(#arrow)" style="display:none"/>
+  <path id="scoopArrow" d="M386 556 C360 586 320 594 284 586" fill="none" stroke="#D85A30" stroke-width="2" stroke-linecap="round" marker-end="url(#arrow)" style="display:none"/>
+  <circle id="flickDot" cx="288" cy="124" r="4" fill="#1D9E75" style="display:''"/>
+  <line id="flickLine" x1="290" y1="126" x2="266" y2="102" stroke="#1D9E75" stroke-width="2" stroke-linecap="round" marker-end="url(#arrow)" style="display:''"/>
+
+  <text class="ts" x="340" y="58" text-anchor="middle">Nose</text>
+  <text class="ts" x="340" y="614" text-anchor="middle">Tail</text>
+  <line class="leader" x1="200" y1="330" x2="266" y2="330"/>
+  <text class="ts" x="194" y="334" text-anchor="end">Heel edge</text>
+  <line class="leader" x1="414" y1="330" x2="480" y2="330"/>
+  <text class="ts" x="486" y="334" text-anchor="start">Toe edge</text>
+</svg>
+
+<p class="legend">
+  <span style="color:#1D9E75">&#9679;</span> front foot &nbsp; <span style="color:#D85A30">&#9679;</span> back foot &nbsp;&middot;&nbsp; disc size = weight on that foot &nbsp;&middot;&nbsp; <span style="color:#7F77DD">&#9679;</span> stay stacked here &nbsp;&middot;&nbsp; regular stance
+</p>
+
+<div id="cues"></div>
+</div>
+
+<script>
+const T = {
+  ollie:{name:"Ollie",diff:1,rot:"No flip",
+    combines:"The base for everything &mdash; every flip trick is this plus a flip or a spin.",
+    back:"Ball of the back foot centered on the tail, roughly parallel with the bolts, heel up. Snap it straight down.",
+    front:"Just behind the front bolts, roughly straight across the board (parallel with the bolts). Slides up to level the board.",
+    press:"Sharp downward snap off the ball of the back foot &mdash; pop, don't push slowly. Front foot light, then presses forward into the nose to level out.",
+    lean:"Stay stacked over the board, shoulders square and level. Don't lean back over the tail. Crouch, pop, suck the knees up, land over the bolts.",
+    motion:"Pop down, jump, drag the front foot up to the nose, level off, land over the bolts.",
+    tip:"Get this dialed first. Pros' flips look clean because the underlying ollie is solid.",
+    ff:[335,220,74],bf:[338,546,108],bp:20,fp:16,pop:1,drag:1},
+  shove:{name:"Pop shove-it",diff:2,rot:"180&deg; flat spin &middot; backside",
+    combines:"A flat 180&deg; spin, no flip. The foundation for varial and 360 flips.",
+    back:"Ball of the foot in the toe-side pocket of the tail, roughly parallel with the bolts, toes hanging slightly over the edge. Scoop down and back toward your heel side.",
+    front:"Near the front bolts, flat and roughly straight across. It only lifts and guides &mdash; no flick.",
+    press:"All back foot: a quick scoop off the ball, not a heavy stomp. Front foot is feather-light &mdash; it barely presses, just hovers and guides.",
+    lean:"Weight centered, shoulders fairly square. Don't lean back or chase it &mdash; let it spin flat underneath you.",
+    motion:"From the toe pocket, sweep the tail back behind you toward the heel side. Board spins 180&deg; flat; catch over the bolts.",
+    tip:"Power comes from the scoop, not a big jump. Keep weight centered or it shoots out.",
+    ff:[340,216,92],bf:[350,544,104],bp:16,fp:10,scoop:"back",lift:1},
+  kickflip:{name:"Kickflip",diff:2,rot:"Full flip &middot; heel-side",
+    combines:"Ollie + a front-foot flick off the heel-side corner of the nose.",
+    back:"Same as your ollie &mdash; ball centered on the tail, pop straight down. No scoop.",
+    front:"Angled ~45&deg;, behind the front bolts, toes toward the toe-side nose pocket, heel just off the heel edge.",
+    press:"Sharp pop straight down off the ball of the back foot (no scoop). Front foot light on the way up, then a quick flick out-and-down &mdash; don't mash it or kick straight down.",
+    lean:"Keep your weight centered and shoulders square; open your chest slightly toward the nose. Leaning back onto the tail is the #1 reason it flips out in front of you.",
+    motion:"Pop, slide up, flick the outer edge of your toes off the heel-side corner. The board barrel-rolls toward you.",
+    tip:"Flick down-and-out, don't kick forward. Keep shoulders square so it flips straight.",
+    ff:[322,226,42],bf:[338,546,108],bp:20,fp:13,pop:1,flick:"L"},
+  heelflip:{name:"Heelflip",diff:3,rot:"Full flip &middot; toe-side",
+    combines:"The mirror of a kickflip &mdash; flick off the toe-side corner with your heel.",
+    back:"Same as your ollie &mdash; ball centered on the tail, pop straight down.",
+    front:"Below the bolts, pointed mostly at the nose, shifted toward the toe edge with the outer toes drifting over it.",
+    press:"Sharp pop off the ball of the back foot. Front foot light, then snap the heel out &mdash; let the toes lift as the heel drives. Quick, not heavy.",
+    lean:"Stay centered, shoulders square and level. Don't sink onto your heels &mdash; keep your weight over the board so it stays under you.",
+    motion:"Pop, slide up, kick your heel out off the toe-side corner. The board flips away from you.",
+    tip:"Think 'kick a ball forward' with the heel. The flip is often easier than a kickflip, the catch harder.",
+    ff:[372,224,10],bf:[338,546,108],bp:20,fp:13,pop:1,flick:"R"},
+  varial:{name:"Varial flip",diff:3,rot:"180&deg; spin + flip &middot; backside",
+    combines:"Backside pop shove-it + kickflip. Flip and spin turn opposite ways, so it rotates cleanly.",
+    back:"Pop shove-it position &mdash; ball in the toe-side pocket of the tail. Scoop down and back toward your heel side.",
+    front:"Kickflip flick off the heel-side corner of the nose.",
+    press:"Pop-scoop off the ball of the back foot, plus a light front-foot flick. Even pressure so the spin and flip finish together.",
+    lean:"Centered and square. A small backside wind is okay, but don't throw your shoulders &mdash; the scoop does the spinning.",
+    motion:"Scoop back from the toe pocket and flick together. The board does a 180&deg; backside spin and a kickflip simultaneously.",
+    tip:"Balance the two: too much scoop and it won't flip; too much flick and it won't spin.",
+    ff:[322,226,42],bf:[350,544,104],bp:16,fp:14,scoop:"back",flick:"L"},
+  hardflip:{name:"Hardflip",diff:4,rot:"180&deg; spin + flip &middot; frontside",
+    combines:"Frontside pop shove-it + kickflip. The flip and shove turn the same way (congruent), which is why the board stands up vertically between your legs.",
+    back:"Ball slightly toward the heel-side pocket of the tail. Pop straight down, then push the tail forward, toward your toe side.",
+    front:"Kickflip position but a touch straighter (toes more toward the nose). Flick like a kickflip, then kick it out sideways/behind to clear the board.",
+    press:"Pop down + push forward off the back foot, plus a firm kickflip flick &mdash; both feet work hard. Keep them over the board so the vertical flip stays under you.",
+    lean:"Stay stacked directly over the board, chest open toward the nose. Commit down the middle so the vertical flip stays under you, not out front.",
+    motion:"Pop, push the tail forward, and kickflip-flick together. The board rises and flips vertically; ride away as it lands flat.",
+    tip:"Commit and keep it under you &mdash; the same-direction fight between shove and flip is what stands the board up.",
+    ff:[322,228,34],bf:[328,546,110],bp:16,fp:16,scoop:"front",flick:"L"},
+  tre:{name:"360 flip",diff:5,rot:"360&deg; spin + flip &middot; backside",
+    combines:"360&deg; backside pop shove-it + kickflip. Flip and spin turn opposite ways &mdash; that opposition is what lets it rotate cleanly. The back foot does almost all the work.",
+    back:"Ball in the toe-side pocket of the tail, toes grabbing the corner, heel up off the deck. Hard scoop &mdash; down, back, and around toward your heel side. This spins it a full 360&deg;.",
+    front:"Kickflip position but a little further back and turned more (sharper angle), heel hanging off. Light flick &mdash; the scoop carries it.",
+    press:"Think 98% back foot, 2% front foot. Pressure on the toes of the back foot, heel up, hard scoop. The front foot is just a nudge &mdash; over-pressing it kills the rotation.",
+    lean:"Shoulders square, weight stacked &mdash; resist turning your shoulders to force the spin. Stay centered or it shoots out in front.",
+    motion:"Hard backside scoop from the toe pocket + light flick as one motion. Lift your knees and let the board come all the way around.",
+    tip:"If it's not rotating, scoop harder &mdash; not flick harder. The scoop is the whole trick.",
+    ff:[318,234,52],bf:[354,544,102],bp:22,fp:8,scoop:"back",hard:1,flick:"L"},
+  varialheel:{name:"Varial heelflip",diff:3,rot:"180&deg; spin + flip &middot; frontside",
+    combines:"Frontside pop shove-it + heelflip. The heelflip cousin of the varial flip; flip and spin oppose each other, so it spins clean.",
+    back:"Ball toward the heel-side pocket of the tail. Pop and push the tail forward, toward your toe side.",
+    front:"Heelflip flick off the toe-side corner of the nose.",
+    press:"Pop + forward push off the back foot, light heel flick. Power on the back-foot toes and the front heel.",
+    lean:"Centered, chest slightly open toward the nose (frontside). Let the scoop spin it; don't muscle it with your shoulders.",
+    motion:"Push the tail forward and heel-flick together. The board spins 180&deg; frontside and heelflips at once.",
+    tip:"Both motions go the same way, so it flows once the timing clicks.",
+    ff:[372,226,10],bf:[328,546,110],bp:16,fp:14,scoop:"front",flick:"R"},
+  inwardheel:{name:"Inward heelflip",diff:4,rot:"180&deg; spin + flip &middot; backside",
+    combines:"Backside pop shove-it + heelflip. Flip and shove are congruent like a hardflip, so it has that awkward, fighting feel.",
+    back:"Ball on the tail with the toes on the deck and the heel hanging off the back edge. Just a small backside scoop to start the spin.",
+    front:"Heelflip flick off the toe-side corner &mdash; this foot does most of the work on an inward heel.",
+    press:"Front-foot led: just enough backside scoop to start the spin, then the heel flick finishes it. Over-power the back foot and it turns into a 360 shove.",
+    lean:"Stay tight and centered, shoulders square. The shove and flick pull opposite ways for your feet, so stacked weight keeps it under you.",
+    motion:"Small backside scoop + heel flick. The board spins backside and heelflips.",
+    tip:"Controlled more with the front foot than the back. Keep it tight and centered.",
+    ff:[372,226,10],bf:[344,546,106],bp:14,fp:16,scoop:"back",flick:"R"},
+  laser:{name:"Laser flip",diff:5,rot:"360&deg; spin + flip &middot; frontside",
+    combines:"360&deg; frontside pop shove-it + heelflip. The clean-spinning heelflip twin of the 360 flip &mdash; flip and spin oppose each other.",
+    back:"Ball toward the heel-side pocket of the tail, angled for a strong scoop. Hard pop + push forward &mdash; drive a full 360&deg; toward your toe side.",
+    front:"Heelflip flick off the toe-side corner. Aim the heel in the direction of the spin; keep it light.",
+    press:"Heavy forward scoop off the back foot does the work; the heel flick stays light. Scoop pressure, not flick pressure.",
+    lean:"Stay stacked and patient &mdash; shoulders square, weight centered. The big scoop makes the spin; leaning just throws it off-axis.",
+    motion:"Hard frontside scoop + light heel flick as one motion. Full 360&deg; spin plus a heelflip.",
+    tip:"Like the tre, the scoop does the work &mdash; scoop harder rather than flicking harder.",
+    ff:[374,228,8],bf:[330,546,110],bp:22,fp:8,scoop:"front",hard:1,flick:"R"}
+};
+
+let cur="kickflip", pressureOn=true, leanOn=false;
+
+function renderCues(t){
+  const dots=n=>'<span style="letter-spacing:3px">'+'<span style="color:var(--color-text-primary,#26251F)">&#9679;</span>'.repeat(n)+'<span style="color:var(--color-border-secondary,#D6D2C8)">&#9679;</span>'.repeat(5-n)+'</span>';
+  let layerCards="";
+  if(pressureOn) layerCards += `<div class="cuecard"><p class="cuelabel"><span class="dot" style="background:#D85A30"></span>Pressure &amp; weight</p><p class="cueval">${t.press}</p><p style="font-size:12px;color:var(--color-text-secondary,#6E6B62);margin:6px 0 0">Bigger disc on the board = more weight on that foot.</p></div>`;
+  if(leanOn) layerCards += `<div class="cuecard"><p class="cuelabel"><span class="dot" style="background:#7F77DD"></span>Body &amp; lean</p><p class="cueval">${t.lean}</p></div>`;
+  const layerBlock = layerCards ? `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;margin:0 0 10px">${layerCards}</div>` : "";
+  return `
+  <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin:0 0 8px">
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+      <span style="font-size:18px;font-weight:500">${t.name}</span>
+      <span style="font-size:12px;background:var(--color-background-secondary,#F1EFE9);color:var(--color-text-secondary,#6E6B62);padding:3px 9px;border-radius:var(--border-radius-md,10px)">${t.rot}</span>
+    </div>
+    <span style="font-size:12px;color:var(--color-text-secondary,#6E6B62)">difficulty ${dots(t.diff)}</span>
+  </div>
+  <p style="font-size:13px;color:var(--color-text-secondary,#6E6B62);margin:0 0 12px;line-height:1.5">${t.combines}</p>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;margin:0 0 10px">
+    <div class="cuecard"><p class="cuelabel"><span class="dot" style="background:#D85A30"></span>Back foot</p><p class="cueval">${t.back}</p></div>
+    <div class="cuecard"><p class="cuelabel"><span class="dot" style="background:#1D9E75"></span>Front foot</p><p class="cueval">${t.front}</p></div>
+  </div>
+  ${layerBlock}
+  <div class="cuecard" style="margin:0 0 10px"><p class="cuelabel">&#8594;&nbsp;The motion</p><p class="cueval">${t.motion}</p></div>
+  <div class="cuecard"><p class="cuelabel">&#9733;&nbsp;Key tip</p><p class="cueval">${t.tip}</p></div>`;
+}
+
+function render(){
+  const t=T[cur];
+  document.getElementById('frontFoot').setAttribute('transform',`translate(${t.ff[0]} ${t.ff[1]}) rotate(${t.ff[2]})`);
+  document.getElementById('backFoot').setAttribute('transform',`translate(${t.bf[0]} ${t.bf[1]}) rotate(${t.bf[2]})`);
+  const disp=(id,on)=>{document.getElementById(id).style.display=on?'':'none';};
+  disp('popArrow',t.pop); disp('dragArrow',t.drag); disp('liftArrow',t.lift);
+  const sc=document.getElementById('scoopArrow');
+  if(t.scoop){ sc.style.display='';
+    sc.setAttribute('d', t.scoop==='back' ? 'M386 556 C360 586 320 594 284 586' : 'M348 550 C372 540 390 522 398 500');
+    sc.setAttribute('stroke-width', t.hard?'3.5':'2');
+  } else sc.style.display='none';
+  const fd=document.getElementById('flickDot'), fl=document.getElementById('flickLine');
+  if(t.flick){ fd.style.display=''; fl.style.display='';
+    if(t.flick==='L'){ fd.setAttribute('cx',288);fd.setAttribute('cy',124); fl.setAttribute('x1',290);fl.setAttribute('y1',126);fl.setAttribute('x2',266);fl.setAttribute('y2',102);}
+    else { fd.setAttribute('cx',392);fd.setAttribute('cy',124); fl.setAttribute('x1',390);fl.setAttribute('y1',126);fl.setAttribute('x2',414);fl.setAttribute('y2',102);}
+  } else { fd.style.display='none'; fl.style.display='none'; }
+  document.getElementById('bpDisc').setAttribute('r', t.bp);
+  document.getElementById('fpDisc').setAttribute('r', t.fp);
+  disp('bpZone',pressureOn); disp('fpZone',pressureOn);
+  disp('leanLayer',leanOn);
+  document.getElementById('cues').innerHTML=renderCues(t);
+  document.querySelectorAll('.trickbar button').forEach(b=>b.classList.toggle('active',b.dataset.key===cur));
+  document.getElementById('tgPressure').classList.toggle('active',pressureOn);
+  document.getElementById('tgLean').classList.toggle('active',leanOn);
+}
+function applyTrick(k){ cur=k; render(); }
+function toggleLayer(n){ if(n==='p') pressureOn=!pressureOn; else leanOn=!leanOn; render(); }
+render();
+</script>

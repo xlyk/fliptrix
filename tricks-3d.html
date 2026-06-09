@@ -1,0 +1,1520 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Fliptrix 3D — flip trick visualizer</title>
+<style>
+  html,body{margin:0;height:100%;overflow:hidden;background:#14171a;color:#e8e6e1;
+    font:13px/1.45 system-ui,-apple-system,'Segoe UI',sans-serif}
+  #scene{position:fixed;inset:0}
+  .panel{position:fixed;background:rgba(21,24,28,.84);backdrop-filter:blur(10px);
+    border:1px solid #2c3137;border-radius:12px;padding:12px;z-index:2}
+  #left{top:12px;left:12px;width:206px;max-height:calc(100% - 130px);overflow:auto}
+  #left h1{font-size:14px;font-weight:600;margin:0 0 10px;letter-spacing:.4px}
+  #left .tricks{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+  #tunebox{margin-top:10px;border-top:1px solid #2c3137;padding-top:8px}
+  #tunebox summary{cursor:pointer;font-size:12px;color:#aab2ba;user-select:none}
+  .knob{margin-top:7px}
+  .knob .kl{display:flex;justify-content:space-between;font-size:11px;color:#aab2ba}
+  .knob .kl b{color:#e8e6e1;font-weight:500;font-variant-numeric:tabular-nums}
+  .knob input{width:100%;margin:2px 0 0;display:block}
+  #right{top:12px;right:12px;width:264px;max-height:calc(100% - 130px);overflow:auto}
+  #bottom{left:50%;transform:translateX(-50%);bottom:12px;width:min(1160px,calc(100% - 24px))}
+  .barrow{justify-content:space-between}
+  .grp{display:flex;align-items:center;gap:9px;padding:5px 11px;border:1px solid #2c3137;border-radius:9px;flex-wrap:wrap}
+  .grp .gl{font-size:10px;text-transform:uppercase;letter-spacing:.8px;color:#6f7780;margin-right:2px;user-select:none}
+  button{font:inherit;font-size:12px;padding:6px 8px;border-radius:8px;border:1px solid #353b42;
+    background:#1d2126;color:#e8e6e1;cursor:pointer;white-space:nowrap}
+  button:hover{border-color:#4a525b}
+  button.active{border-color:#3b8bd4;background:#16314a;color:#bcdcfa}
+  .row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .row+.row{margin-top:8px}
+  label.tog{display:flex;align-items:center;gap:4px;font-size:12px;color:#aab2ba;cursor:pointer;user-select:none}
+  input[type=range]{accent-color:#3b8bd4}
+  #scrub{flex:1;min-width:120px}
+  #speed{width:90px}
+  #slowmoSpeed{width:64px}
+  .sep{width:1px;height:18px;background:#2c3137;margin:0 2px}
+  #tlabel{font-variant-numeric:tabular-nums;color:#8b949d;font-size:12px;width:74px}
+  #infoName{font-size:17px;font-weight:600;margin:0 8px 0 0;display:inline}
+  .chip{font-size:11px;background:#262b31;color:#aab2ba;padding:2px 8px;border-radius:8px;
+    display:inline-block;vertical-align:2px}
+  #infoSpec{font-size:12px;color:#8b949d;margin:7px 0 10px}
+  .cuecard{background:#1b1f24;border:1px solid #262b31;border-radius:9px;padding:9px 11px;margin-top:8px}
+  .cuelabel{font-size:11px;color:#8b949d;margin:0 0 3px;display:flex;align-items:center;gap:6px}
+  .cueval{font-size:12.5px;line-height:1.5;margin:0}
+  .dot{width:9px;height:9px;border-radius:50%;display:inline-block;flex:0 0 auto}
+  #phasebar{position:relative;height:17px;margin:0 0 3px}
+  .ph{position:absolute;top:0;bottom:0;font-size:9px;text-transform:uppercase;letter-spacing:.6px;
+    color:#7d868f;border-left:1px solid #2c3137;padding:3px 0 0 5px;cursor:pointer;
+    overflow:hidden;white-space:nowrap;user-select:none}
+  .ph:hover{color:#e8e6e1}
+  .mk{position:absolute;top:0;bottom:0;width:2px;background:#3b8bd4;cursor:pointer;opacity:.85}
+  .lvl{display:block;font-size:8px;letter-spacing:2px;color:#6f7780;line-height:1.3}
+  button.active .lvl{color:#5d87ad}
+  .cuecard{transition:border-color .15s}
+  #cueBack.hot{border-color:#D85A30}
+  #cueFront.hot{border-color:#1D9E75}
+  #cueBack,#cueFront,#cueMotion{cursor:pointer}
+  #gloss{margin-top:10px;border-top:1px solid #2c3137;padding-top:8px}
+  #gloss summary{cursor:pointer;font-size:12px;color:#aab2ba;user-select:none}
+  #gloss b{color:#e8e6e1;font-weight:600}
+  #errbar{position:fixed;top:0;left:0;right:0;background:#a72525;color:#fff;padding:6px 12px;
+    font-size:12px;z-index:99;display:none;white-space:pre-wrap}
+</style>
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
+</head>
+<body>
+<div id="errbar"></div>
+<div id="scene"></div>
+
+<div class="panel" id="left">
+  <h1>FLIPTRIX 3D</h1>
+  <div class="tricks" id="trickbar"></div>
+  <label class="tog" style="margin-top:10px"><input type="checkbox" id="nollie">nollie (pop the nose)</label>
+  <details id="tunebox">
+    <summary>tune</summary>
+    <div class="knob">
+      <div class="kl"><span>truck tightness</span><b id="truckVal"></b></div>
+      <input type="range" id="truckTight" min="0" max="1" step="0.05">
+    </div>
+    <div id="tunes" style="border-top:1px solid #2c3137;margin-top:8px"></div>
+    <div class="row" style="margin-top:8px">
+      <button id="tuneReset">reset trick</button>
+      <button id="tuneCopy">copy json</button>
+    </div>
+  </details>
+</div>
+
+<div class="panel" id="right">
+  <div><span id="infoName"></span><span class="chip" id="infoRot"></span>
+    <button class="chip" id="mirrorBtn" style="cursor:pointer;border:1px solid #353b42" title="switch to the mirror trick"></button></div>
+  <div id="infoSpec"></div>
+  <div id="cues"></div>
+  <details id="gloss">
+    <summary>glossary</summary>
+    <div class="cueval" style="font-size:12px;line-height:1.8;margin-top:6px">
+      <b>pop</b> &mdash; snapping the tail off the ground to launch<br>
+      <b>scoop</b> &mdash; the back foot dragging the tail around to spin the board<br>
+      <b>flick</b> &mdash; the front foot snapping off a nose corner to start the flip<br>
+      <b>BS / FS</b> &mdash; backside / frontside: which way the board spins<br>
+      <b>bolts</b> &mdash; the truck mounting bolts; "land over the bolts"<br>
+      <b>pocket</b> &mdash; the curved corner where tail meets rail<br>
+      <b>ball of the foot</b> &mdash; the pad behind the toes, where pressure goes<br>
+      <b>switch</b> &mdash; riding with your opposite foot forward
+    </div>
+  </details>
+</div>
+
+<div class="panel" id="bottom">
+  <div class="row barrow">
+    <div class="grp"><span class="gl">playback</span>
+      <button id="play" style="width:64px"></button>
+      <label class="tog"><input type="checkbox" id="loop" checked>loop</label>
+      <label class="tog">speed <input type="range" id="speed" min="0.1" max="1" step="0.05" value="0.5"></label>
+      <label class="tog"><input type="checkbox" id="slowmo">flick slow-mo
+        <input type="range" id="slowmoSpeed" min="0.05" max="0.6" step="0.05" value="0.25"></label>
+    </div>
+    <div class="grp"><span class="gl">show</span>
+      <label class="tog"><input type="checkbox" id="feet" checked>feet</label>
+      <label class="tog"><input type="checkbox" id="legs" checked>legs</label>
+      <label class="tog"><input type="checkbox" id="pressure" checked>pressure</label>
+      <label class="tog"><input type="checkbox" id="collide" checked>collision</label>
+      <label class="tog"><input type="checkbox" id="ghosts">ghosts</label>
+      <label class="tog"><input type="checkbox" id="roll">roll</label>
+      <label class="tog"><input type="checkbox" id="switchst">switch stance</label>
+    </div>
+    <div class="grp"><span class="gl">camera</span>
+      <button data-cam="three">3-quarter</button>
+      <button data-cam="side">side</button>
+      <button data-cam="front">front</button>
+      <button data-cam="behind">behind</button>
+      <button data-cam="top">top</button>
+    </div>
+  </div>
+  <div id="phasebar"></div>
+  <div class="row">
+    <input type="range" id="scrub" min="0" max="1" step="0.001" value="0">
+    <span id="tlabel"></span>
+  </div>
+</div>
+
+<script>
+window.addEventListener('error', e => {
+  const b = document.getElementById('errbar');
+  b.style.display = 'block';
+  b.textContent += (e.message || e.error) + '\n';
+});
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+
+/* ================================================================== */
+/* CONSTANTS                                                          */
+/* ================================================================== */
+// Units: meters. Regular stance. +Z = nose, +X = toe side, +Y = up.
+// flipDeg > 0 = kickflip direction (deck rolls toward the heel side):
+//   axis-angle(+Z, +θ) lifts the toe edge first.
+// spinDeg > 0 = backside: the tail sweeps toward the heel side (-X), matching
+//   the 2D file's backside scoop arrow — that is +Y world rotation here.
+//   (The 2D scoop directions are the source of truth for spin chirality.)
+const DECK_LEN = 0.84, DECK_W = 0.21, DECK_TH = 0.013;
+const WHEELBASE = 0.38, RIDE_H = 0.080;
+const REAR_TRUCK_Z = -WHEELBASE / 2;
+// popsicle deck profile: stadium outline (rounded nose/tail), smooth kicks,
+// slight concave. Shared by the deck mesh and the foot-contact math.
+const HALF_L = DECK_LEN / 2, HALF_W = DECK_W / 2;
+const KICK_START = 0.235, KICK_H = 0.046, KICK_POW = 1.9, CONCAVE = 0.006;  // long flat middle, kicks only at the ends
+const deckWidthAt = z => {
+  const s = Math.abs(z) - (HALF_L - HALF_W);
+  return s <= 0 ? HALF_W : Math.max(0.004, HALF_W * Math.sqrt(Math.max(0, 1 - (s / HALF_W) ** 2)));
+};
+const deckLiftAt = (z, xr = 0) => {
+  const u = Math.max(0, (Math.abs(z) - KICK_START) / (HALF_L - KICK_START));
+  return KICK_H * u ** KICK_POW + CONCAVE * xr * xr;
+};
+const FOOT_LEN = 0.27, FOOT_W = 0.10, FOOT_H = 0.07;
+const FOOT_PX2M = FOOT_LEN / 128;   // 2D foot is 128 px long — converts bp/fp disc radii
+const FOOT_Y = DECK_TH / 2 + FOOT_H / 2 + 0.003;   // foot center above deck center
+const COL_FRONT = 0x1D9E75, COL_BACK = 0xD85A30;   // match the 2D widget
+const ROLL_SPEED = 0.9;                            // m/s when rolling
+
+// SVG viewBox -> deck-local mapping (2D file: board rect x 270-410, y 72-588, nose at y=72)
+const SVG_CX = 340, SVG_CY = 330, SVG2X = DECK_W / 140, SVG2Z = DECK_LEN / 516;
+// a foot resting on the deck surface at (x, z) — follows the kicks/concave
+const onDeck = (x, z) => new THREE.Vector3(x, FOOT_Y + deckLiftAt(z, x / HALF_W), z);
+const svgToLocal = (x, y) => onDeck((x - SVG_CX) * SVG2X, (SVG_CY - y) * SVG2Z);
+
+// Timeline phase boundaries (normalized t)
+const PH = { setup: 0.12, launch: 0.20, level: 0.45, catch: 0.78, land: 0.88 };
+const POP_PITCH = THREE.MathUtils.degToRad(29);    // tail tip just reaches the ground (kicked tail sits higher)
+
+const d2r = THREE.MathUtils.degToRad;
+const clamp01 = s => Math.min(1, Math.max(0, s));
+const smooth = s => { s = clamp01(s); return s * s * (3 - 2 * s); };
+const seg = (t, a, b) => smooth((t - a) / (b - a));
+const easeOut = u => { u = clamp01(u); return 1 - (1 - u) * (1 - u); };  // impulse: fast start, settles
+const snap = s => { s = clamp01(s); return 1 - (1 - s) * (1 - s); };  // fast-out, for the pop
+const X_AXIS = new THREE.Vector3(1, 0, 0), Y_AXIS = new THREE.Vector3(0, 1, 0), Z_AXIS = new THREE.Vector3(0, 0, 1);
+
+// Scoop paths are not authored: the back foot rides the rotating toe pocket
+// (boardPose with impulse-shaped spin), which traces the 2D file's scoop arc
+// chirality by construction — backside sweeps heel-ward, frontside toe-ward.
+
+// Flick corners from the 2D flickDot: L (heel-side) svg(288,124), R (toe-side) svg(392,124).
+// Exit direction from the 2D flickLine: out past the corner and slightly down.
+const flickCornerLocal = f => onDeck(f === 'L' ? -0.078 : 0.078, 0.323);
+const flickExitDelta   = f => new THREE.Vector3(f === 'L' ? -0.115 : 0.115, -0.03, 0.11);
+
+/* ================================================================== */
+/* TRICKS — data ported from flip_trick_foot_placement_v3_portable.html (T object) + 3D params */
+/* ================================================================== */
+const TRICKS = {
+  ollie: { name: "Ollie", rot: "No flip",
+    flipDeg: 0, spinDeg: 0, airtime: 0.70, popHeight: 0.46,
+    tuckClear: 0.10, vertClear: 0, kneeLift: 0, riseEnd: 0.31, catchT: 0.54,
+    ff: [335, 220, 74], bf: [338, 546, 108], bp: 20, fp: 16, pop: 1, drag: 1,
+    back: "Ball of the back foot centered on the tail, roughly parallel with the bolts, heel up. Snap it straight down.",
+    front: "Just behind the front bolts, roughly straight across the board (parallel with the bolts). Slides up to level the board.",
+    motion: "Pop down, jump, drag the front foot up to the nose, level off, land over the bolts.",
+    tip: "Get this dialed first. Pros' flips look clean because the underlying ollie is solid." },
+  shove: { name: "Pop shove-it", rot: "180&deg; flat spin &middot; backside",
+    flipDeg: 0, spinDeg: 180, airtime: 0.70, popHeight: 0.25,
+    ff: [340, 216, 92], bf: [350, 544, 104], bp: 16, fp: 10, scoop: "back", lift: 1,
+    back: "Ball of the foot in the toe-side pocket of the tail, roughly parallel with the bolts, toes hanging slightly over the edge. Scoop down and back toward your heel side.",
+    front: "Near the front bolts, flat and roughly straight across. It only lifts and guides &mdash; no flick.",
+    motion: "From the toe pocket, sweep the tail back behind you toward the heel side. Board spins 180&deg; flat; catch over the bolts.",
+    tip: "Power comes from the scoop, not a big jump. Keep weight centered or it shoots out." },
+  kickflip: { name: "Kickflip", rot: "Full flip &middot; heel-side",
+    flipDeg: 360, spinDeg: 0, airtime: 0.75, popHeight: 0.40,
+    ff: [322, 226, 42], bf: [338, 546, 108], bp: 20, fp: 13, pop: 1, flick: "L",
+    back: "Same as your ollie &mdash; ball centered on the tail, pop straight down. No scoop.",
+    front: "Angled ~45&deg;, behind the front bolts, toes toward the toe-side nose pocket, heel just off the heel edge.",
+    motion: "Pop, slide up, flick the outer edge of your toes off the heel-side corner. The board barrel-rolls toward you.",
+    tip: "Flick down-and-out, don't kick forward. Keep shoulders square so it flips straight." },
+  heelflip: { name: "Heelflip", rot: "Full flip &middot; toe-side",
+    flipDeg: -360, spinDeg: 0, airtime: 0.75, popHeight: 0.40,
+    ff: [372, 224, 28], bf: [338, 546, 108], bp: 20, fp: 13, pop: 1, flick: "R",
+    back: "Same as your ollie &mdash; ball centered on the tail, pop straight down.",
+    front: "Below the bolts, pointed mostly at the nose, shifted toward the toe edge with the outer toes drifting over it.",
+    motion: "Pop, slide up, kick your heel out off the toe-side corner. The board flips away from you.",
+    tip: "Think 'kick a ball forward' with the heel. The flip is often easier than a kickflip, the catch harder." },
+  varial: { name: "Varial flip", rot: "180&deg; spin + flip &middot; backside",
+    flipDeg: 360, spinDeg: 180, airtime: 0.80, popHeight: 0.45,
+    ff: [322, 226, 42], bf: [350, 544, 104], bp: 16, fp: 14, scoop: "back", flick: "L",
+    back: "Pop shove-it position &mdash; ball in the toe-side pocket of the tail. Scoop down and back toward your heel side.",
+    front: "Kickflip flick off the heel-side corner of the nose.",
+    motion: "Scoop back from the toe pocket and flick together. The board does a 180&deg; backside spin and a kickflip simultaneously.",
+    tip: "Balance the two: too much scoop and it won't flip; too much flick and it won't spin." },
+  hardflip: { name: "Hardflip", rot: "180&deg; spin + flip &middot; frontside",
+    flipDeg: 360, spinDeg: -180, airtime: 0.85, popHeight: 0.50, vert: 65,
+    ff: [322, 228, 34], bf: [328, 546, 110], bp: 16, fp: 16, scoop: "front", flick: "L",
+    back: "Ball slightly toward the heel-side pocket of the tail. Pop straight down, then push the tail forward, toward your toe side.",
+    front: "Kickflip position but a touch straighter (toes more toward the nose). Flick like a kickflip, then kick it out sideways/behind to clear the board.",
+    motion: "Pop, push the tail forward, and kickflip-flick together. The board rises and flips vertically; ride away as it lands flat.",
+    tip: "Commit and keep it under you &mdash; the same-direction fight between shove and flip is what stands the board up." },
+  tre: { name: "360 flip", rot: "360&deg; spin + flip &middot; backside",
+    flipDeg: 360, spinDeg: 360, airtime: 0.90, popHeight: 0.55,
+    riseEnd: 0.40, riseEndF: 0.43, kneeLift: 0.09,
+    ff: [318, 234, 52], bf: [354, 544, 102], bp: 22, fp: 8, scoop: "back", hard: 1, flick: "L",
+    back: "Ball in the toe-side pocket of the tail, toes grabbing the corner, heel up off the deck. Hard scoop &mdash; down, back, and around toward your heel side. This spins it a full 360&deg;.",
+    front: "Kickflip position but a little further back and turned more (sharper angle), heel hanging off. Light flick &mdash; the scoop carries it.",
+    motion: "Hard backside scoop from the toe pocket + light flick as one motion. Lift your knees and let the board come all the way around.",
+    tip: "If it's not rotating, scoop harder &mdash; not flick harder. The scoop is the whole trick." },
+  varialheel: { name: "Varial heelflip", rot: "180&deg; spin + flip &middot; frontside",
+    flipDeg: -360, spinDeg: -180, airtime: 0.80, popHeight: 0.45,
+    ff: [372, 226, 28], bf: [328, 546, 110], bp: 16, fp: 14, scoop: "front", flick: "R",
+    back: "Ball toward the heel-side pocket of the tail. Pop and push the tail forward, toward your toe side.",
+    front: "Heelflip flick off the toe-side corner of the nose.",
+    motion: "Push the tail forward and heel-flick together. The board spins 180&deg; frontside and heelflips at once.",
+    tip: "Both motions go the same way, so it flows once the timing clicks." },
+  inwardheel: { name: "Inward heelflip", rot: "180&deg; spin + flip &middot; backside",
+    flipDeg: -360, spinDeg: 180, airtime: 0.85, popHeight: 0.50, vert: 50,
+    ff: [372, 226, 28], bf: [344, 546, 106], bp: 14, fp: 16, scoop: "back", flick: "R",
+    back: "Ball on the tail with the toes on the deck and the heel hanging off the back edge. Just a small backside scoop to start the spin.",
+    front: "Heelflip flick off the toe-side corner &mdash; this foot does most of the work on an inward heel.",
+    motion: "Small backside scoop + heel flick. The board spins backside and heelflips.",
+    tip: "Controlled more with the front foot than the back. Keep it tight and centered." },
+  laser: { name: "Laser flip", rot: "360&deg; spin + flip &middot; frontside",
+    flipDeg: -360, spinDeg: -360, airtime: 0.90, popHeight: 0.55,
+    riseEnd: 0.40, riseEndF: 0.43, kneeLift: 0.09,
+    ff: [374, 228, 26], bf: [330, 546, 110], bp: 22, fp: 8, scoop: "front", hard: 1, flick: "R",
+    back: "Ball toward the heel-side pocket of the tail, angled for a strong scoop. Hard pop + push forward &mdash; drive a full 360&deg; toward your toe side.",
+    front: "Heelflip flick off the toe-side corner. Aim the heel in the direction of the spin; keep it light.",
+    motion: "Hard frontside scoop + light heel flick as one motion. Full 360&deg; spin plus a heelflip.",
+    tip: "Like the tre, the scoop does the work &mdash; scoop harder rather than flicking harder." },
+  // shove360 + bigspin are additions beyond the audited 2D file; cues written
+  // in the same style, foot data borrowed from the shove (front) and tre (back)
+  shove360: { name: "360 shove-it", rot: "360&deg; flat spin &middot; backside",
+    flipDeg: 0, spinDeg: 360, airtime: 0.85, popHeight: 0.45, riseEndF: 0.40,
+    ff: [340, 216, 92], bf: [354, 544, 102], bp: 22, fp: 8, scoop: "back", hard: 1, lift: 1,
+    back: "The 360 flip's scoop without the flick &mdash; ball in the toe-side pocket, toes grabbing the corner, heel up. Hard scoop down, back, and around; the whole 360 comes from this foot.",
+    front: "Near the front bolts, flat and feather-light. It lifts, guides, and waits over the board for the catch.",
+    motion: "Hard backside scoop from the toe pocket. The board spins a full 360&deg; flat beneath you; catch over the bolts.",
+    tip: "Commit to the full scoop &mdash; a lazy scoop turns it into a 180. No flick, all tail." },
+  bigspin: { name: "Bigspin", rot: "360&deg; board + 180&deg; body &middot; backside",
+    flipDeg: 0, spinDeg: 360, bodySpinDeg: 180, airtime: 0.90, popHeight: 0.50, riseEndF: 0.40,
+    ff: [340, 216, 92], bf: [354, 544, 102], bp: 22, fp: 8, scoop: "back", hard: 1, lift: 1,
+    back: "The 360 shove-it scoop &mdash; toe-side pocket, hard down-back-and-around &mdash; while your body starts turning backside with it.",
+    front: "Light over the front bolts; it rises with you and tracks the board as you rotate.",
+    motion: "Scoop the 360 shove and turn your shoulders 180&deg; backside with it. Board does 360, you do 180 &mdash; you land riding fakie over the bolts.",
+    tip: "Shoulders lead the body 180; the scoop alone spins the board. Don't rush the catch." },
+};
+const trickDuration = tr => tr.airtime / (PH.land - PH.launch);  // total real seconds
+
+// When the flick lands: the nose passes through the front foot's path after
+// ~35° of yaw, so spinning tricks flick early (tre ≈ t 0.23); flip-only
+// tricks flick at the classic 0.28. Also when the board's flip impulse starts.
+function flickContactT(tr) {
+  if (!tr.flick || !tr.spinDeg) return 0.28;
+  const a = Math.min(35 / Math.abs(tr.spinDeg), 1);
+  return PH.launch + (PH.catch - PH.launch) * (1 - Math.sqrt(1 - a));
+}
+
+/* Tunable per-trick knobs. Pose functions read these live, so slider changes
+   apply immediately and stay scrub-safe. Overrides persist in localStorage;
+   "copy json" exports only non-default values for pasting back into TRICKS. */
+const TUNE = [
+  { k: 'airtime',   label: 'airtime (s)',          min: 0.4,  max: 1.5,  step: 0.01 },
+  { k: 'popHeight', label: 'pop height (m)',       min: 0.05, max: 0.9,  step: 0.01 },
+  { k: 'vert',      label: 'vertical pitch (°)',   min: 0,    max: 90,   step: 1 },
+  { k: 'scoopK',    label: 'scoop sweep (×)',      min: 0,    max: 3,    step: 0.05 },
+  { k: 'flickK',    label: 'flick kick (×)',       min: 0,    max: 3,    step: 0.05 },
+  { k: 'tuckClear', label: 'foot clearance (m)',   min: 0.10, max: 0.40, step: 0.005 },
+  { k: 'vertClear', label: 'vert straddle (m)',   min: 0,    max: 0.4,  step: 0.01 },
+  { k: 'kneeLift',  label: 'knee lift (m)',        min: 0,    max: 0.2,  step: 0.005 },
+  { k: 'leanDeg',   label: 'setup lean (°, toe+)', min: -12,  max: 12,   step: 0.5 },
+  { k: 'riseEnd',   label: 'back-foot rise (t)',   min: 0.25, max: 0.65, step: 0.01 },
+  { k: 'riseEndF',  label: 'front-foot rise (t)',  min: 0.30, max: 0.70, step: 0.01 },
+  { k: 'catchT',    label: 'catch — feet meet board (t)', min: 0.40, max: 0.80, step: 0.01 },
+];
+// Generic knob defaults; a trick entry's own value (a baked-in tuning) wins.
+for (const tr of Object.values(TRICKS)) {
+  tr.vert = tr.vert ?? 0;
+  tr.scoopK = tr.scoopK ?? (tr.scoop ? (tr.hard ? 1.6 : 1.4) : 0);
+  tr.flickK = tr.flickK ?? (tr.flick ? 1 : 0);
+  tr.tuckClear = tr.tuckClear ?? 0.185;
+  tr.vertClear = tr.vertClear ?? 0.16;   // fore/aft straddle distance for vertical tricks
+  tr.kneeLift = tr.kneeLift ?? 0.06;
+  tr.riseEnd = tr.riseEnd ?? (tr.scoop ? 0.42 : 0.40);
+  tr.riseEndF = tr.riseEndF ?? (tr.flick ? 0.42 : tr.drag ? 0.58 : 0.55);
+  tr.catchT = tr.catchT ?? PH.catch;
+  // setup lean: how far the back foot's pressure point sits toe-side of the
+  // ollie's neutral tail pressure (ball of foot at bf + foot-yaw * press offset)
+  const pressX = (tr.bf[0] - SVG_CX) * SVG2X + Math.sin(d2r(tr.bf[2])) * 40 * FOOT_PX2M;
+  tr.leanDeg = tr.leanDeg ?? Math.round(THREE.MathUtils.clamp(270 * (pressX - 0.077), -10, 10) * 2) / 2;
+}
+const TUNE_DEFAULTS = Object.fromEntries(Object.entries(TRICKS).map(([tk, tr]) =>
+  [tk, Object.fromEntries(TUNE.map(s => [s.k, tr[s.k]]))]));
+const TUNE_LS = 'fliptrix-tune';
+try {
+  const saved = JSON.parse(localStorage.getItem(TUNE_LS) || '{}');
+  for (const [tk, o] of Object.entries(saved)) if (TRICKS[tk]) Object.assign(TRICKS[tk], o);
+} catch { /* corrupt/unavailable storage — run with defaults */ }
+function tuneOverrides() {
+  const out = {};
+  for (const [tk, tr] of Object.entries(TRICKS)) {
+    const o = {};
+    for (const s of TUNE) if (tr[s.k] !== TUNE_DEFAULTS[tk][s.k]) o[s.k] = tr[s.k];
+    if (Object.keys(o).length) out[tk] = o;
+  }
+  return out;
+}
+function saveTune() {
+  try { localStorage.setItem(TUNE_LS, JSON.stringify(tuneOverrides())); } catch { }
+}
+
+/* ================================================================== */
+/* SCENE                                                              */
+/* ================================================================== */
+const container = document.getElementById('scene');
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.setSize(innerWidth, innerHeight);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+container.appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x14171a);
+scene.fog = new THREE.Fog(0x14171a, 9, 26);
+
+const camera = new THREE.PerspectiveCamera(45, innerWidth / innerHeight, 0.05, 60);
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+controls.maxPolarAngle = Math.PI / 2 - 0.02;
+const CAMS = {
+  three:  [1.9, 1.2, 2.1],
+  side:   [2.6, 0.7, 0],
+  front:  [0, 0.8, 3.0],
+  behind: [0, 0.8, -3.0],
+  top:    [0, 3.4, 0.02],
+};
+let curCam = null, camTween = null;
+function setCam(name, snap = false) {
+  curCam = name;
+  document.querySelectorAll('[data-cam]').forEach(b => b.classList.toggle('active', b.dataset.cam === name));
+  const pos = new THREE.Vector3(...CAMS[name]), tgt = new THREE.Vector3(0, 0.38, 0);
+  if (snap) {
+    camera.position.copy(pos);
+    controls.target.copy(tgt);
+    controls.update();
+  } else camTween = { pos, tgt };  // eased toward in tick()
+}
+setCam('three', true);
+controls.addEventListener('start', () => {  // user grabbed the orbit — hands off
+  camTween = null;
+  curCam = null;
+  document.querySelectorAll('[data-cam]').forEach(b => b.classList.remove('active'));
+});
+
+scene.add(new THREE.HemisphereLight(0xcfe0ee, 0x4a443c, 0.9));
+const sun = new THREE.DirectionalLight(0xfff4e0, 1.7);
+sun.position.set(3, 5.5, 2);
+sun.castShadow = true;
+sun.shadow.mapSize.set(2048, 2048);
+sun.shadow.camera.left = -2; sun.shadow.camera.right = 2;
+sun.shadow.camera.top = 2; sun.shadow.camera.bottom = -2;
+sun.shadow.camera.near = 1; sun.shadow.camera.far = 12;
+sun.shadow.radius = 4;
+scene.add(sun);
+// dim fill from below so the deck graphic stays legible mid-flip
+const fill = new THREE.DirectionalLight(0xcfd8e0, 0.35);
+fill.position.set(-2, -3, 1);
+scene.add(fill);
+
+const ground = new THREE.Mesh(
+  new THREE.PlaneGeometry(50, 50),
+  new THREE.MeshStandardMaterial({ color: 0x565b60, roughness: 1 })
+);
+ground.rotation.x = -Math.PI / 2;
+ground.receiveShadow = true;
+scene.add(ground);
+const grid = new THREE.GridHelper(50, 100, 0x6e767d, 0x60666c);
+grid.position.y = 0.001;
+grid.material.transparent = true;
+grid.material.opacity = 0.35;
+scene.add(grid);
+
+// soft contact blob in addition to the shadow map
+const blob = new THREE.Mesh(
+  new THREE.CircleGeometry(0.42, 32),
+  new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.3, depthWrite: false })
+);
+blob.rotation.x = -Math.PI / 2;
+blob.position.y = 0.002;
+scene.add(blob);
+
+/* ================================================================== */
+/* BOARD BUILD                                                        */
+/* ================================================================== */
+// Deck surface grid: stadium outline scaled by deckWidthAt, lifted by
+// deckLiftAt. Top and bottom are separate meshes (grip vs graphic); the two
+// rail wall strips trace the full outline and meet at the rounded tips.
+const DECK_SEG_L = 96, DECK_SEG_W = 16;  // fine enough for the thin tip ribbons
+// tip bands: a thin ribbon that follows the CURVE of the nose/tail outline —
+// colored by inset distance from the stadium rim (not by a straight z cut),
+// fading out where the rounded end meets the straight rails
+function tipColor(base, x, z) {
+  const cz = THREE.MathUtils.clamp(z, -(HALF_L - HALF_W), HALF_L - HALF_W);
+  const edge = HALF_W - Math.hypot(x, z - cz);   // distance inward from the outline
+  const tipRegion = seg(Math.abs(z), HALF_L - HALF_W - 0.01, HALF_L - HALF_W + 0.05);
+  const w = (1 - seg(edge, 0.008, 0.018)) * tipRegion * 0.95;
+  return base.clone().lerp(new THREE.Color(z > 0 ? COL_FRONT : COL_BACK), w);
+}
+function buildDeckSurface(top) {
+  const verts = [], idx = [], cols = [];
+  const base = new THREE.Color(top ? 0x2e3338 : 0xc2497c);
+  for (let j = 0; j <= DECK_SEG_L; j++) {
+    const z = -HALF_L + (DECK_LEN * j) / DECK_SEG_L;
+    const w = deckWidthAt(z);
+    for (let i = 0; i <= DECK_SEG_W; i++) {
+      const xr = -1 + (2 * i) / DECK_SEG_W;
+      verts.push(xr * w, deckLiftAt(z, xr) + (top ? DECK_TH / 2 : -DECK_TH / 2), z);
+      const c = tipColor(base, xr * w, z);
+      cols.push(c.r, c.g, c.b);
+    }
+  }
+  for (let j = 0; j < DECK_SEG_L; j++) for (let i = 0; i < DECK_SEG_W; i++) {
+    const a = j * (DECK_SEG_W + 1) + i, b = a + 1, c = a + DECK_SEG_W + 1, d = c + 1;
+    if (top) idx.push(a, c, b, b, c, d); else idx.push(a, b, c, b, d, c);
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(verts, 3));
+  geo.setAttribute('color', new THREE.Float32BufferAttribute(cols, 3));
+  geo.setIndex(idx);
+  geo.computeVertexNormals();
+  return geo;
+}
+function buildDeckWall() {
+  const verts = [], idx = [], cols = [];
+  const base = new THREE.Color(0xd8c9a3);
+  for (const side of [1, -1]) {
+    const start = verts.length / 3;
+    for (let j = 0; j <= DECK_SEG_L; j++) {
+      const z = -HALF_L + (DECK_LEN * j) / DECK_SEG_L;
+      const x = side * deckWidthAt(z);
+      const lift = deckLiftAt(z, 1);
+      verts.push(x, lift + DECK_TH / 2, z, x, lift - DECK_TH / 2, z);
+      const c = tipColor(base, x, z);
+      cols.push(c.r, c.g, c.b, c.r, c.g, c.b);
+    }
+    for (let j = 0; j < DECK_SEG_L; j++) {
+      const a = start + j * 2, b = a + 1, c = a + 2, d = a + 3;
+      if (side === 1) idx.push(a, c, b, b, c, d); else idx.push(a, b, c, b, d, c);
+    }
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(verts, 3));
+  geo.setAttribute('color', new THREE.Float32BufferAttribute(cols, 3));
+  geo.setIndex(idx);
+  geo.computeVertexNormals();
+  return geo;
+}
+
+function buildBoard() {
+  const g = new THREE.Group();
+  // base colors live in the vertex colors (incl. the dipped tips)
+  const matGrip = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.97, vertexColors: true });
+  const matBottom = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.5, vertexColors: true });
+  const matSide = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.8, vertexColors: true });
+
+  // deck (and everything bolted through it) lives in a tilt group so the
+  // setup lean can roll it over the trucks
+  const deckTilt = new THREE.Group();
+  g.add(deckTilt);
+  for (const [geo, mat] of [
+    [buildDeckSurface(true), matGrip],
+    [buildDeckSurface(false), matBottom],
+    [buildDeckWall(), matSide],
+  ]) {
+    const m = new THREE.Mesh(geo, mat);
+    m.castShadow = true;
+    deckTilt.add(m);
+  }
+
+  // nose/tail identification is baked into the deck's dipped-tip vertex
+  // colors (teal nose = front foot's end, coral tail = back foot's end)
+
+  // mounting hardware: 4 bolt heads per truck on the grip — the reference
+  // points the cues mean by "over the bolts"
+  const matBolt = new THREE.MeshStandardMaterial({ color: 0x9aa1a8, roughness: 0.3, metalness: 0.7 });
+  for (const tz of [WHEELBASE / 2, -WHEELBASE / 2])
+    for (const bx of [0.032, -0.032]) for (const bz of [0.026, -0.026]) {
+      const bolt = new THREE.Mesh(new THREE.CylinderGeometry(0.0045, 0.0045, 0.002, 10), matBolt);
+      bolt.position.set(bx, DECK_TH / 2 + 0.001, tz + bz);
+      deckTilt.add(bolt);
+    }
+
+  const matTruck = new THREE.MeshStandardMaterial({ color: 0xb9bec4, roughness: 0.35, metalness: 0.6 });
+  const matWheel = new THREE.MeshStandardMaterial({ color: 0xf4efe6, roughness: 0.5 });
+  const truckPivots = [];
+  for (const z of [WHEELBASE / 2, -WHEELBASE / 2]) {
+    // pivot at the truck center: rotation.y steers the hanger + wheels
+    const pivot = new THREE.Group();
+    pivot.position.set(0, 0, z);
+    g.add(pivot);
+    truckPivots.push(pivot);
+    const hanger = new THREE.Mesh(new THREE.BoxGeometry(0.13, 0.028, 0.045), matTruck);
+    hanger.position.set(0, -DECK_TH / 2 - 0.016, 0);
+    hanger.castShadow = true;
+    pivot.add(hanger);
+    const axle = new THREE.Mesh(new THREE.CylinderGeometry(0.007, 0.007, 0.206, 10), matTruck);
+    axle.rotation.z = Math.PI / 2;
+    axle.position.set(0, 0.03 - RIDE_H, 0);  // axle at wheel-center height, poking past the hubs
+    pivot.add(axle);
+    for (const x of [0.083, -0.083]) {
+      const w = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.031, 20), matWheel);
+      w.rotation.z = Math.PI / 2;
+      w.position.set(x, 0.03 - RIDE_H, 0);
+      w.castShadow = true;
+      pivot.add(w);
+      // hex axle nut on the wheel face
+      const nut = new THREE.Mesh(new THREE.CylinderGeometry(0.0095, 0.0095, 0.009, 6), matTruck);
+      nut.rotation.z = Math.PI / 2;
+      nut.position.set(Math.sign(x) * 0.101, 0.03 - RIDE_H, 0);
+      pivot.add(nut);
+    }
+  }
+  g.userData = { deckTilt, truckF: truckPivots[0], truckB: truckPivots[1] };
+  return g;
+}
+const board = buildBoard();
+scene.add(board);
+
+// onion-skin ghost decks: a strobe history of the rotation, scrub-friendly
+const ghostDecks = [1, 2].map(() => {
+  const g = new THREE.Group();
+  for (const geo of [buildDeckSurface(true), buildDeckSurface(false)])
+    g.add(new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: 0xffffff, vertexColors: true, transparent: true, opacity: 0.10, depthWrite: false })));
+  g.visible = false;
+  scene.add(g);
+  return g;
+});
+
+// spin-direction arc on the ground: sweep ∝ |spinDeg|, arrowhead at the end
+const spinArc = new THREE.Group();
+spinArc.position.y = 0.004;
+scene.add(spinArc);
+function rebuildSpinArc() {
+  for (const c of spinArc.children) c.geometry.dispose();
+  spinArc.clear();
+  const tr = TRICKS[state.trick];
+  spinArc.userData = { dir: Math.sign(tr.spinDeg), mat: null };
+  if (!tr.spinDeg) return;
+  const theta = Math.min(d2r(Math.abs(tr.spinDeg)), Math.PI * 1.85);
+  const mat = new THREE.MeshBasicMaterial({ color: 0x8fb8e8, transparent: true, opacity: 0, depthWrite: false, side: THREE.DoubleSide });
+  spinArc.userData.mat = mat;
+  // start at the TAIL (geometry angle π/2 → world -Z) and sweep the way the
+  // tail travels; drawn sweep = +Y rotation = backside, stance mirror flips it
+  const T0 = Math.PI / 2;
+  const ring = new THREE.Mesh(new THREE.RingGeometry(0.50, 0.535, 48, 1, T0, theta), mat);
+  ring.rotation.x = -Math.PI / 2;
+  const te = T0 + theta;
+  const cone = new THREE.Mesh(new THREE.ConeGeometry(0.05, 0.11, 10), mat);
+  cone.position.set(0.5175 * Math.cos(te), 0, -0.5175 * Math.sin(te));
+  cone.quaternion.setFromUnitVectors(Y_AXIS, new THREE.Vector3(-Math.sin(te), 0, -Math.cos(te)));
+  spinArc.add(ring, cone);
+}
+
+/* ================================================================== */
+/* FEET BUILD                                                         */
+/* ================================================================== */
+function buildFoot(color, pressZ) {
+  const g = new THREE.Group();
+  const ghost = (col, rough) => new THREE.MeshStandardMaterial(
+    { color: col, transparent: true, opacity: 0.8, roughness: rough,
+      side: THREE.DoubleSide });  // feet render mirrored (scale.z=-1) in nollie
+
+  // shared last: one width profile drives both the upper and the sole so the
+  // cupsole stays flush (just a ~1.5mm ledge) all the way around
+  const L = FOOT_LEN / 2 - 0.004;
+  const halfW = z => {
+    const head = Math.min(1, Math.max(0, (L - Math.abs(z)) / 0.035));
+    const cap = Math.sqrt(Math.max(0, 1 - (1 - head) ** 2));   // round heel/toe closure
+    return (0.034 + 0.012 * seg(z, -0.06, 0.05)) * cap;        // waist → wide forefoot
+  };
+  const topH = z => (0.056 - 0.031 * seg(z, -0.05, 0.07)) *    // tall heel → low toe box
+    Math.min(1, (L - Math.abs(z)) / 0.045 + 0.35);
+
+  // white cupsole: the same outline sampled into a shape, slightly inflated
+  const sw = z => halfW(z) * 1.03 + 0.0015;
+  const soleShape = new THREE.Shape();
+  soleShape.moveTo(-sw(-L), -L);
+  for (let j = 1; j <= 40; j++) { const z = -L + (2 * L * j) / 40; soleShape.lineTo(-sw(z), z); }
+  for (let j = 40; j >= 0; j--) { const z = -L + (2 * L * j) / 40; soleShape.lineTo(sw(z), z); }
+  const soleGeo = new THREE.ExtrudeGeometry(soleShape,
+    { depth: 0.014, bevelEnabled: true, bevelThickness: 0.004, bevelSize: 0.003, bevelSegments: 2 });
+  soleGeo.rotateX(Math.PI / 2);
+  const sole = new THREE.Mesh(soleGeo, ghost(0xe9e5dc, 0.65));
+  sole.position.y = -FOOT_H / 2 + 0.020;
+  sole.castShadow = true;
+  g.add(sole);
+
+  // suede upper as a parametric dome: width profile × superellipse cross
+  // section × wedge height (tall heel → low toe). Continuously curved from
+  // sole to crown — no extrusion walls, no box.
+  const upGeo = (() => {
+    const SL = 44, SU = 18;
+    const verts = [], idx = [];
+    for (let j = 0; j <= SL; j++) {
+      const z = -L + (2 * L * j) / SL;
+      const w = Math.max(halfW(z), 0.002), h = Math.max(topH(z), 0.004);
+      for (let i = 0; i <= SU; i++) {
+        const u = -1 + (2 * i) / SU;
+        // higher superellipse exponent = fuller, puffier crown
+        verts.push(u * w, h * Math.pow(Math.max(0, 1 - Math.abs(u) ** 3.2), 0.58), z);
+      }
+    }
+    for (let j = 0; j < SL; j++) for (let i = 0; i < SU; i++) {
+      const a = j * (SU + 1) + i, b = a + 1, c = a + SU + 1, d = c + 1;
+      idx.push(a, c, b, b, c, d);
+    }
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(verts, 3));
+    geo.setIndex(idx);
+    geo.computeVertexNormals();
+    return geo;
+  })();
+  const suede = new THREE.Color(color).multiplyScalar(0.85);
+  const upper = new THREE.Mesh(upGeo, ghost(suede, 0.95));
+  upper.position.y = -0.010;
+  upper.castShadow = true;
+  g.add(upper);
+
+  // padded tongue in the throat, collar roll at the ankle, heel tab,
+  // laces following the vamp slope
+  const tongue = new THREE.Mesh(new RoundedBoxGeometry(0.042, 0.012, 0.046, 2, 0.006), ghost(suede, 0.95));
+  tongue.position.set(0, 0.044, -0.016);
+  tongue.rotation.x = -0.5;
+  g.add(tongue);
+  const collar = new THREE.Mesh(new THREE.TorusGeometry(0.021, 0.009, 8, 18),
+    ghost(new THREE.Color(color).multiplyScalar(0.6), 0.95));
+  collar.rotation.x = Math.PI / 2 - 0.12;
+  collar.position.set(0, 0.041, -0.066);
+  g.add(collar);
+  const heelTab = new THREE.Mesh(new RoundedBoxGeometry(0.026, 0.020, 0.009, 2, 0.004),
+    ghost(new THREE.Color(color).multiplyScalar(0.6), 0.95));
+  heelTab.position.set(0, 0.030, -0.108);
+  heelTab.rotation.x = 0.22;
+  g.add(heelTab);
+  const matLace = ghost(0xdfe3e6, 0.7);
+  for (let i = 0; i < 4; i++) {
+    const z = -0.002 + i * 0.016;
+    const lace = new THREE.Mesh(new THREE.BoxGeometry(0.034, 0.0035, 0.0065), matLace);
+    lace.position.set(0, 0.033 - (z + 0.002) * 0.35, z);
+    lace.rotation.x = -0.34;
+    g.add(lace);
+  }
+  // pressure point at the ball of the foot — ported from the 2D fpZone/bpZone
+  // (disc radius = weight on that foot, set per trick in apply()). Sits on the
+  // sole; depthTest off so it reads through the foot/deck like a 2D overlay.
+  const PRESS_COL = 0x3b8bd4;
+  const press = new THREE.Group();
+  press.position.set(0, -FOOT_H / 2 - 0.002, pressZ);
+  const disc = new THREE.Mesh(
+    new THREE.CylinderGeometry(1, 1, 0.006, 24),
+    new THREE.MeshBasicMaterial({ color: PRESS_COL, transparent: true, opacity: 0.55, depthWrite: false, depthTest: false }));
+  const dot = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.007, 0.007, 0.01, 12),
+    new THREE.MeshBasicMaterial({ color: PRESS_COL, transparent: true, opacity: 0.95, depthWrite: false, depthTest: false }));
+  disc.renderOrder = dot.renderOrder = 5;
+  // ripple rings that radiate out while the pressure is applied at full force
+  const rings = [0, 1, 2].map(() => {
+    const m = new THREE.Mesh(
+      new THREE.RingGeometry(0.78, 1, 32),
+      new THREE.MeshBasicMaterial({ color: PRESS_COL, transparent: true, opacity: 0,
+        depthWrite: false, depthTest: false, side: THREE.DoubleSide }));
+    m.rotation.x = -Math.PI / 2;
+    m.renderOrder = 5;
+    return m;
+  });
+  press.add(disc, dot, ...rings);
+  g.add(press);
+  g.userData.press = { group: press, disc, rings, mats: [disc.material, dot.material] };
+  return g;
+}
+// 2D pressure discs sit at foot-local cy -36 (front) / -40 (back), toward the toes
+const footFront = buildFoot(COL_FRONT, 36 * FOOT_PX2M);
+const footBack = buildFoot(COL_BACK, 40 * FOOT_PX2M);
+scene.add(footFront, footBack);
+
+// trail of the pressure point's path — shows how the foot slides/scoops to
+// produce the flip; re-sampled from the pure footPose every frame
+const TRAIL_N = 28;
+function buildTrail(color) {
+  const group = new THREE.Group();
+  const geo = new THREE.SphereGeometry(1, 8, 8);
+  for (let i = 0; i < TRAIL_N; i++) {
+    const m = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({
+      color, transparent: true, opacity: 0, depthWrite: false, depthTest: false }));
+    m.renderOrder = 4;
+    group.add(m);
+  }
+  group.visible = false;
+  scene.add(group);
+  return group;
+}
+const trailFront = buildTrail(COL_FRONT), trailBack = buildTrail(COL_BACK);
+
+// ghost legs: hip → knee → ankle per leg, joints solved by 2-bone IK in
+// apply(); ankle is a fixed point on the foot so legs inherit all foot motion
+const THIGH = 0.38, SHIN = 0.36, HIP_HALF = 0.09;
+const ANKLE_LOCAL = new THREE.Vector3(0, FOOT_H / 2 + 0.01, -FOOT_LEN / 2 + 0.07);
+const ghostMat = (color, opacity) => new THREE.MeshStandardMaterial(
+  { color, transparent: true, opacity, roughness: 0.6, depthWrite: false });
+function buildLeg(color) {
+  const mat = ghostMat(color, 0.3);
+  const leg = {
+    thigh: new THREE.Mesh(new THREE.CylinderGeometry(0.052, 0.046, 1, 12), mat),
+    shin: new THREE.Mesh(new THREE.CylinderGeometry(0.042, 0.036, 1, 12), mat),
+    knee: new THREE.Mesh(new THREE.SphereGeometry(0.05, 12, 10), mat),
+    hip: new THREE.Mesh(new THREE.SphereGeometry(0.058, 12, 10), mat),
+    group: new THREE.Group(),
+  };
+  leg.group.add(leg.thigh, leg.shin, leg.knee, leg.hip);
+  leg.group.visible = false;
+  scene.add(leg.group);
+  return leg;
+}
+const legFront = buildLeg(COL_FRONT), legBack = buildLeg(COL_BACK);
+const pelvis = new THREE.Mesh(new RoundedBoxGeometry(0.17, 0.14, 0.30, 3, 0.05), ghostMat(0xcfd6dc, 0.25));
+pelvis.visible = false;
+scene.add(pelvis);
+
+/* ================================================================== */
+/* POSE FUNCTIONS (pure — deterministic in t, no state)               */
+/* ================================================================== */
+function boardPose(tk, t, rolling) {
+  const tr = TRICKS[tk];
+  const dur = trickDuration(tr);
+  const rollZ = rolling ? ROLL_SPEED * dur * (t - 0.5) : 0;
+  let pitch = 0, y = RIDE_H, z = rollZ, flip = 0, spin = 0;
+
+  if (t < PH.setup) {
+    // rest / rolling
+  } else if (t < PH.launch) {
+    // pop: pitch nose-up about the rear-truck ground contact point
+    pitch = POP_PITCH * snap((t - PH.setup) / (PH.launch - PH.setup));
+    y = RIDE_H * Math.cos(pitch) - REAR_TRUCK_Z * Math.sin(pitch);
+    z = rollZ + REAR_TRUCK_Z - REAR_TRUCK_Z * Math.cos(pitch) - RIDE_H * Math.sin(pitch);
+  } else {
+    const y0 = RIDE_H * Math.cos(POP_PITCH) - REAR_TRUCK_Z * Math.sin(POP_PITCH);
+    const z0 = REAR_TRUCK_Z - REAR_TRUCK_Z * Math.cos(POP_PITCH) - RIDE_H * Math.sin(POP_PITCH);
+    if (t < PH.land) {
+      const s = (t - PH.launch) / (PH.land - PH.launch);
+      y = THREE.MathUtils.lerp(y0, RIDE_H, s) + 4 * tr.popHeight * s * (1 - s);
+      z = rollZ + z0 * (1 - seg(t, PH.launch, PH.level));
+    } else {
+      y = RIDE_H - 0.02 * Math.sin(Math.PI * clamp01((t - PH.land) / 0.1)); // landing dip
+      z = rollZ;
+    }
+    pitch = POP_PITCH * (1 - seg(t, PH.launch, PH.level));
+    if (tr.vert) pitch += d2r(tr.vert) * Math.sin(Math.PI * clamp01((t - 0.30) / 0.45));
+    // impulse-shaped: the scoop loads the spin at launch, the flick loads the
+    // flip at contact — fast early rate easing out into the catch
+    spin = d2r(tr.spinDeg) * easeOut((t - PH.launch) / (PH.catch - PH.launch));
+    const flipT0 = tr.flick ? flickContactT(tr) : PH.launch;
+    flip = d2r(tr.flipDeg) * easeOut((t - flipT0) / (PH.catch - flipT0));
+  }
+
+  // fixed composition order: yaw ∘ pitch ∘ flip (flip innermost, in the deck's local frame)
+  const qYaw = new THREE.Quaternion().setFromAxisAngle(Y_AXIS, spin);
+  const qPitch = new THREE.Quaternion().setFromAxisAngle(X_AXIS, -pitch);
+  const qNoFlip = qYaw.clone().multiply(qPitch);
+  const quat = qNoFlip.clone().multiply(new THREE.Quaternion().setFromAxisAngle(Z_AXIS, flip));
+  return { pos: new THREE.Vector3(0, y, z), quat, qNoFlip, rollZ, dur };
+}
+
+// lerp with separate vertical/horizontal progress — lets a foot rise beside
+// the board first, then come over the top (a planned path, not a collision)
+const staggerLerp = (a, b, sy, sxz) => new THREE.Vector3(
+  THREE.MathUtils.lerp(a.x, b.x, sxz),
+  THREE.MathUtils.lerp(a.y, b.y, sy),
+  THREE.MathUtils.lerp(a.z, b.z, sxz));
+
+// Top of the board's swept volume above a horizontal point, or -Infinity when
+// clear. The flipping board sweeps a capsule around its long axis (flip is
+// rotation about that axis; the axis itself carries yaw and any vertical
+// pitch), so the allowed zone is exact for spins, flips, and the hardflip.
+const SWEEP_R = 0.135;  // half-width + inverted truck/wheel reach
+function boardTopAt(tk, tt, wx, wz, rolling) {
+  const b = boardPose(tk, tt, rolling);
+  const axis = new THREE.Vector3(0, 0, 1).applyQuaternion(b.quat);
+  const ax = b.pos.x - axis.x * HALF_L, az = b.pos.z - axis.z * HALF_L, ay = b.pos.y - axis.y * HALF_L;
+  const dx = axis.x * DECK_LEN, dz = axis.z * DECK_LEN, dy = axis.y * DECK_LEN;
+  const len2 = dx * dx + dz * dz;
+  const u = len2 > 1e-6 ? clamp01(((wx - ax) * dx + (wz - az) * dz) / len2) : 0.5;
+  const dh = Math.hypot(wx - (ax + u * dx), wz - (az + u * dz));
+  if (dh >= SWEEP_R) return null;
+  return {
+    top: ay + u * dy + Math.sqrt(SWEEP_R * SWEEP_R - dh * dh),
+    rim: seg(SWEEP_R - dh, 0, 0.06),   // feather at the rim so lifts blend in
+  };
+}
+
+// setup lean: deck rolls toward the pressured rail during the wind-up/pop
+// (positive = toe-side edge down), with a slight opposite rock first, and
+// releases as the board leaves the ground. Drives deck tilt, truck steering,
+// and the feet riding the tilted deck.
+function leanAt(tk, t) {
+  const tr = TRICKS[tk];
+  const wind = seg(t, 0.02, 0.07) * (1 - seg(t, 0.07, 0.13));
+  const press = seg(t, 0.06, 0.15) * (1 - seg(t, PH.launch, 0.27));
+  // loose trucks tilt much further under the same foot pressure
+  const loose = 2.2 - 1.7 * state.truckTight;
+  return d2r(tr.leanDeg) * loose * (press - 0.45 * wind);
+}
+
+// bigspin-family body rotation: the rider yaws with the board (impulse-shaped
+// like the spin). Rotates the feet's hover/catch targets, hips, and foot yaw.
+function bodyYawAt(tk, t) {
+  const b = TRICKS[tk].bodySpinDeg;
+  return b ? d2r(b) * easeOut((t - PH.launch) / (PH.catch - PH.launch)) : 0;
+}
+
+function footPose(tk, which, t, rolling) {
+  const tr = TRICKS[tk];
+  const isF = which === 'front';
+  const fd = isF ? tr.ff : tr.bf;
+  const rest = svgToLocal(fd[0], fd[1]);
+  const restYaw = d2r(fd[2]);
+  const landYaw = d2r(isF ? 74 : 108);  // settle into the ollie landing stance
+  // a deck point ignoring the flip component — feet ride/contact the deck plane, not the flip
+  const ghost = (tt, local) => {
+    const b = boardPose(tk, tt, rolling);
+    const qLean = new THREE.Quaternion().setFromAxisAngle(Z_AXIS, -leanAt(tk, tt));
+    return local.clone().applyQuaternion(qLean).applyQuaternion(b.qNoFlip).add(b.pos);
+  };
+
+  // orientation: feet pitch with the pop, then level out; yaw eases to landing
+  // stance and carries any body rotation (bigspin)
+  const yaw = THREE.MathUtils.lerp(restYaw, landYaw, seg(t, 0.40, 0.75)) + bodyYawAt(tk, t);
+  const popPitch = POP_PITCH * (t < PH.setup ? 0 :
+    t < PH.launch ? snap((t - PH.setup) / (PH.launch - PH.setup)) : (1 - seg(t, PH.launch, PH.level)));
+  const footPitch = popPitch * (1 - seg(t, 0.22, 0.34));
+  const quat = new THREE.Quaternion().setFromAxisAngle(X_AXIS, -footPitch)
+    .multiply(new THREE.Quaternion().setFromAxisAngle(Z_AXIS, -leanAt(tk, t)))
+    .multiply(new THREE.Quaternion().setFromAxisAngle(Y_AXIS, yaw));
+  if (isF && tr.flick) {
+    // the ankle actually flicks: winds up into contact, snaps through the
+    // corner, releases — toes down-and-out for kickflips, heel-led with toes
+    // lifting for heelflips, plus a slight sole roll toward the corner
+    const tCo = flickContactT(tr);
+    const k = seg(t, tCo - 0.04, tCo + 0.02) * (1 - seg(t, tCo + 0.06, tCo + 0.16));
+    if (k > 0) {
+      const toes = tr.flick === 'L' ? d2r(38) : d2r(-30);
+      const roll = (tr.flick === 'L' ? -1 : 1) * d2r(12);
+      quat.multiply(new THREE.Quaternion().setFromAxisAngle(X_AXIS, toes * k))
+          .multiply(new THREE.Quaternion().setFromAxisAngle(Z_AXIS, roll * k));
+    }
+  } else if (!isF && tr.scoop) {
+    // the back ankle flicks through the scoop too: plantar-flexes while
+    // dragging the pocket, snaps at release (t≈0.27), relaxes on the recoil
+    const k = seg(t, PH.launch, 0.29) * (1 - seg(t, 0.34, 0.45));
+    if (k > 0) {
+      const roll = (tr.scoop === 'back' ? -1 : 1) * d2r(14);
+      quat.multiply(new THREE.Quaternion().setFromAxisAngle(X_AXIS, d2r(38) * k))
+          .multiply(new THREE.Quaternion().setFromAxisAngle(Z_AXIS, roll * k));
+    }
+  }
+
+  // mid-flight hover: above the board center, knees tucked, slight outward shift
+  const tuck = tt => {
+    const b = boardPose(tk, tt, rolling);
+    // vertical tricks (hardflip/inward): the board stands up BETWEEN the legs,
+    // so the feet straddle fore/aft beside it at normal height instead of
+    // riding high above it; they close back over the bolts as it lays flat
+    const straddle = tr.vert ? tr.vertClear * Math.sin(Math.PI * clamp01((tt - 0.30) / 0.45)) : 0;
+    const knee = tr.kneeLift * Math.sin(Math.PI * clamp01((tt - PH.launch) / (PH.land - PH.launch)));
+    const ox = isF ? (tr.flick ? (tr.flick === 'L' ? -0.15 : 0.15) : rest.x)
+                   : (tr.scoop ? (tr.scoop === 'back' ? -0.10 : 0.10) : rest.x);
+    const oz = isF ? WHEELBASE / 2 + straddle : -(WHEELBASE / 2 + straddle);
+    const by = bodyYawAt(tk, tt);  // hover targets rotate with the body (bigspin)
+    return new THREE.Vector3(
+      ox * Math.cos(by) + oz * Math.sin(by),
+      b.pos.y + tr.tuckClear + knee,
+      b.rollZ - ox * Math.sin(by) + oz * Math.cos(by));
+  };
+  // catch/land: over the bolts of the (level) board, tracking its descent exactly
+  const bolts = tt => {
+    const b = boardPose(tk, tt, rolling);
+    const oz = isF ? WHEELBASE / 2 : -WHEELBASE / 2;
+    const by = bodyYawAt(tk, tt);  // a bigspin rider catches rotated 180°
+    return new THREE.Vector3(oz * Math.sin(by), b.pos.y + DECK_TH / 2 + FOOT_H / 2 + 0.004,
+      b.rollZ + oz * Math.cos(by));
+  };
+
+  let pos;
+  if (isF) {
+    if (t < PH.launch) pos = ghost(t, rest);
+    else if (tr.flick) {
+      const corner = flickCornerLocal(tr.flick);
+      const tCo = flickContactT(tr);  // contact as the nose passes the foot
+      if (t < tCo) {
+        // slide along the (pitching, yawing) deck from stance to the corner
+        pos = ghost(t, rest.clone().lerp(corner, seg(t, PH.launch, tCo)));
+      } else {
+        const cAt = ghost(tCo, corner);
+        const exit = cAt.clone().add(flickExitDelta(tr.flick).multiplyScalar(tr.flickK));
+        pos = t < tCo + 0.065 ? cAt.lerp(exit, seg(t, tCo, tCo + 0.065))
+                              : staggerLerp(exit, tuck(t),
+                                  seg(t, tCo + 0.065, tr.riseEndF), seg(t, tCo + 0.095, tr.riseEndF + 0.04));
+      }
+    } else if (tr.drag) {
+      // ollie: drag up the deck toward the nose
+      const noseLocal = onDeck(rest.x * 0.6, 0.30);
+      pos = t < 0.42 ? ghost(t, rest.clone().lerp(noseLocal, seg(t, PH.launch, 0.42)))
+                     : ghost(0.42, noseLocal).lerp(tuck(t), seg(t, 0.42, tr.riseEndF));
+    } else {
+      // shove family: front foot lifts straight off and guides — quick and
+      // high enough to clear the spinning nose (hard scoops whip it around)
+      const liftH = tr.hard ? 0.17 : 0.11;
+      const start = ghost(PH.launch, rest);
+      const lifted = start.clone().add(new THREE.Vector3(0, liftH, 0));
+      pos = t < 0.30 ? start.lerp(lifted, seg(t, PH.launch, 0.30))
+                     : lifted.lerp(tuck(t), seg(t, 0.30, tr.riseEndF));
+    }
+  } else {
+    // Back foot leads the pop (press starts ~2-3 frames before the board pitches),
+    // rides the tail through the snap, then leaves with the jump immediately —
+    // the tail strikes the ground, the foot never does.
+    const attach = tt => ghost(tt, rest).add(new THREE.Vector3(0, -0.008 * seg(tt, 0.10, 0.135), 0));
+    if (tr.scoop) {
+      // The foot stays on the toe pocket THROUGH the launch, dragging the tail
+      // around as the spin builds (the rotation visibly comes from the foot),
+      // releases tangentially with a short follow-through, then recoils.
+      const REL = 0.27;
+      if (t < REL) pos = attach(t);
+      else {
+        const v = attach(REL).sub(attach(REL - 0.015)).setY(0).normalize();
+        pos = attach(REL).add(v.multiplyScalar(0.08 * tr.scoopK * seg(t, REL, 0.34)));
+        const recoilEnd = Math.max(tr.riseEnd, REL + 0.08);
+        pos = staggerLerp(pos, tuck(t),
+          seg(t, REL + 0.01, recoilEnd), seg(t, REL + 0.06, recoilEnd + 0.05));
+      }
+    } else if (t < PH.launch) pos = attach(t);
+    // straight pop: ascend out of the snap right away
+    else pos = attach(PH.launch).lerp(tuck(t), seg(t, PH.launch, tr.riseEnd));
+  }
+  // Catch: blend from wherever the flight path is onto the bolts of the
+  // (level, descending) board. catchT at the apex (ollie) makes the board
+  // rise into the feet; a late catchT waits out the flip/spin first.
+  if (t >= PH.launch) pos.lerp(bolts(t), seg(t, Math.max(PH.launch + 0.05, tr.catchT - 0.16), tr.catchT));
+
+  // Allowed-zone clearance: a free foot over the board stays above the swept
+  // capsule, evaluated with lookahead — clear of where the board is ABOUT to
+  // be, not just where it is. Beside the board (capsule miss) = unconstrained.
+  const freeFrom = isF ? (tr.flick ? flickContactT(tr) + 0.07 : tr.drag ? 0.44 : 0.36)
+                       : (tr.scoop ? 0.28 : PH.launch + 0.01);
+  const cw = seg(t, freeFrom, freeFrom + 0.05) * (1 - seg(t, tr.catchT - 0.16, tr.catchT - 0.06));
+  if (cw > 0 && state.collide) {
+    let lift = 0;
+    for (const la of [-0.04, 0, 0.04, 0.08]) {
+      const hit = boardTopAt(tk, t + la, pos.x, pos.z, rolling);
+      if (!hit) continue;
+      lift = Math.max(lift, (hit.top + FOOT_H / 2 + 0.012 - pos.y) * hit.rim);
+    }
+    if (lift > 0) pos.y += lift * cw;
+  }
+  return { pos, quat, rollZ: boardPose(tk, t, rolling).rollZ };
+}
+
+function anklePos(tk, which, t, rolling) {
+  const f = footPose(tk, which, t, rolling);
+  return ANKLE_LOCAL.clone().applyQuaternion(f.quat).add(f.pos);
+}
+
+// rider pelvis — stacked over the board (the "stay stacked" cue), with a
+// pure-in-t extension curve: crouch → drive up through the pop → knees
+// sucked up mid-flight → extend at the catch → absorb the landing
+function riderPose(tk, t, rolling) {
+  const aF = anklePos(tk, 'front', t, rolling), aB = anklePos(tk, 'back', t, rolling);
+  const b = boardPose(tk, t, rolling);
+  const reach = THIGH + SHIN;  // extension expressed as a fraction of full reach
+  const ext = reach * (0.86
+    - 0.38 * seg(t, 0.02, 0.12)                                   // deep loading crouch — the jump charge
+    + 0.45 * seg(t, 0.13, 0.24)                                   // explosive extension through the pop
+    - 0.34 * seg(t, 0.30, 0.52) * (1 - seg(t, 0.62, PH.catch))
+    - 0.07 * seg(t, 0.70, 0.86)
+    - 0.12 * seg(t, PH.land, PH.land + 0.07) + 0.12 * seg(t, PH.land + 0.07, 1));
+  const mid = aF.clone().add(aB).multiplyScalar(0.5);
+  const pos = new THREE.Vector3(
+    THREE.MathUtils.lerp(mid.x, 0, 0.6),
+    mid.y + Math.min(ext, reach - 0.02),
+    THREE.MathUtils.lerp(mid.z, b.rollZ, 0.5));
+  // reachability: if a leg would overextend (e.g. the low scoop kick-through),
+  // the pelvis yields toward that ankle instead of the limb stretching
+  const maxLen = reach - 0.02;
+  for (const [ankle, hz] of [[aF, HIP_HALF], [aB, -HIP_HALF], [aF, HIP_HALF]]) {
+    const off = new THREE.Vector3(0, -0.05, hz);
+    const d = pos.clone().add(off).sub(ankle);
+    if (d.length() > maxLen) pos.copy(ankle).add(d.normalize().multiplyScalar(maxLen)).sub(off);
+  }
+  return { pos, aF, aB };
+}
+
+// standard 2-bone IK: knee lies on the hip/ankle circle, bent toward `pole`
+function solveKnee(hip, ankle, pole) {
+  const d = ankle.clone().sub(hip);
+  const l = Math.min(d.length(), THIGH + SHIN - 1e-4);
+  const a = (THIGH * THIGH - SHIN * SHIN + l * l) / (2 * l);
+  const h = Math.sqrt(Math.max(0, THIGH * THIGH - a * a));
+  const dn = d.normalize();
+  const side = pole.clone().sub(dn.clone().multiplyScalar(pole.dot(dn))).normalize();
+  return hip.clone().add(dn.multiplyScalar(a)).add(side.multiplyScalar(h));
+}
+
+/* ================================================================== */
+/* UI                                                                 */
+/* ================================================================== */
+const params = new URLSearchParams(location.search);
+const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const state = {
+  trick: params.get('trick') in TRICKS ? params.get('trick') : 'kickflip',
+  t: params.has('t') ? clamp01(parseFloat(params.get('t'))) : 0,
+  playing: !reduced && !params.has('t'),
+  loop: true,
+  speed: 0.5,
+  slowmo: false,
+  feet: params.get('feet') !== '0',
+  legs: params.get('legs') !== '0',
+  pressure: params.get('pressure') !== '0',
+  collide: params.get('collide') === '1',  // off by default — the planned paths already clear the board
+  ghosts: params.get('ghosts') === '1',
+  nollie: params.get('nollie') === '1',
+  // 0 = loose (big tilt under pressure), 1 = tight; persisted separately
+  truckTight: params.has('trucks') ? clamp01(parseFloat(params.get('trucks')) || 0)
+    : parseFloat((() => { try { return localStorage.getItem('fliptrix-trucks'); } catch { return null; } })() ?? '0.4'),
+  rolling: params.get('roll') === '1',
+  // Internal math frame (+X = toe) renders as switch stance from the default
+  // cameras; "regular" is a render-time mirror across the YZ plane.
+  switchStance: params.get('stance') === 'switch',
+};
+if (params.get('cam') in CAMS) setCam(params.get('cam'), true);
+
+const $ = id => document.getElementById(id);
+const DIFF = { ollie: 1, shove: 2, kickflip: 2, heelflip: 3, varial: 3, hardflip: 4, tre: 5, varialheel: 3, inwardheel: 4, laser: 5, shove360: 4, bigspin: 5 };
+const MIRRORS = { kickflip: 'heelflip', heelflip: 'kickflip', varial: 'varialheel', varialheel: 'varial',
+                  tre: 'laser', laser: 'tre', hardflip: 'inwardheel', inwardheel: 'hardflip' };
+function setTrick(k) {
+  state.trick = k;
+  refreshInfo(); rebuildTune(); rebuildSpinArc(); refreshPhaseMarkers(); syncURL();
+}
+const trickbar = $('trickbar');
+for (const [key, tr] of Object.entries(TRICKS)) {
+  const b = document.createElement('button');
+  b.dataset.key = key;
+  b.innerHTML = tr.name + '<span class="lvl">' + '&#9679;'.repeat(DIFF[key]) + '</span>';
+  b.onclick = () => setTrick(key);
+  trickbar.appendChild(b);
+}
+
+// timeline phase bands + per-trick event markers (flick contact, catch)
+const PHASES = [['setup', 0, PH.setup], ['pop', PH.setup, PH.launch],
+  ['flight', PH.launch, PH.catch], ['catch', PH.catch, PH.land], ['land', PH.land, 1]];
+function buildPhaseBar() {
+  for (const [name, a, b2] of PHASES) {
+    const d = document.createElement('div');
+    d.className = 'ph';
+    d.style.left = a * 100 + '%';
+    d.style.width = (b2 - a) * 100 + '%';
+    d.textContent = name;
+    d.onclick = () => { state.t = a; state.playing = false; updatePlayBtn(); };
+    $('phasebar').appendChild(d);
+  }
+}
+function refreshPhaseMarkers() {
+  const tr = TRICKS[state.trick];
+  document.querySelectorAll('#phasebar .mk').forEach(m => m.remove());
+  const mks = [[tr.catchT, 'feet catch the board']];
+  if (tr.flick) mks.unshift([flickContactT(tr), 'flick contact']);
+  for (const [tt, label] of mks) {
+    const m = document.createElement('div');
+    m.className = 'mk';
+    m.style.left = tt * 100 + '%';
+    m.title = label;
+    m.onclick = () => { state.t = tt; state.playing = false; updatePlayBtn(); };
+    $('phasebar').appendChild(m);
+  }
+}
+
+const truckIn = $('truckTight');
+const truckLabel = () => $('truckVal').textContent =
+  state.truckTight.toFixed(2) + (state.truckTight < 0.35 ? ' (loose)' : state.truckTight > 0.7 ? ' (tight)' : '');
+truckIn.value = state.truckTight;
+truckLabel();
+truckIn.oninput = () => {
+  state.truckTight = parseFloat(truckIn.value);
+  truckLabel();
+  try { localStorage.setItem('fliptrix-trucks', truckIn.value); } catch { }
+};
+
+const tunesEl = $('tunes');
+function rebuildTune() {
+  const tr = TRICKS[state.trick];
+  tunesEl.innerHTML = '';
+  for (const s of TUNE) {
+    if ((s.k === 'scoopK' && !tr.scoop) || (s.k === 'flickK' && !tr.flick)) continue;
+    const fmt = v => s.step >= 1 ? v.toFixed(0) : v.toFixed(s.step < 0.01 ? 3 : 2);
+    const row = document.createElement('div');
+    row.className = 'knob';
+    row.innerHTML = `<div class="kl"><span>${s.label}</span><b></b></div>
+      <input type="range" min="${s.min}" max="${s.max}" step="${s.step}">`;
+    const out = row.querySelector('b'), inp = row.querySelector('input');
+    inp.value = tr[s.k];
+    out.textContent = fmt(tr[s.k]);
+    inp.oninput = () => { tr[s.k] = parseFloat(inp.value); out.textContent = fmt(tr[s.k]); saveTune(); };
+    inp.onchange = refreshInfo;   // refresh the "air Xs" readout on release
+    tunesEl.appendChild(row);
+  }
+}
+$('tuneReset').onclick = () => {
+  Object.assign(TRICKS[state.trick], TUNE_DEFAULTS[state.trick]);
+  saveTune(); rebuildTune(); refreshInfo();
+};
+$('tuneCopy').onclick = async () => {
+  const json = JSON.stringify(tuneOverrides(), null, 2);
+  console.log('fliptrix tune overrides:\n' + json);
+  try { await navigator.clipboard.writeText(json); $('tuneCopy').textContent = 'copied!'; }
+  catch { $('tuneCopy').textContent = 'see console'; }
+  setTimeout(() => $('tuneCopy').textContent = 'copy json', 1200);
+};
+rebuildTune();
+if (params.get('tune') === '1') $('tunebox').open = true;
+buildPhaseBar();
+refreshPhaseMarkers();
+rebuildSpinArc();
+syncURL();
+
+function refreshInfo() {
+  const tr = TRICKS[state.trick];
+  document.querySelectorAll('#trickbar button').forEach(b =>
+    b.classList.toggle('active', b.dataset.key === state.trick));
+  $('infoName').textContent = (state.nollie ? 'Nollie ' : '') + tr.name;
+  // nollie mirrors the spin chirality, so BS/FS naming flips with it
+  const nolSwap = s => state.nollie
+    ? s.replace(/backside|frontside|Backside|Frontside/g,
+        m => ({ backside: 'frontside', frontside: 'backside', Backside: 'Frontside', Frontside: 'Backside' })[m])
+    : s;
+  $('infoRot').innerHTML = nolSwap(tr.rot);
+  const sgn = v => (v > 0 ? '+' : '') + v;
+  const dispSpin = tr.spinDeg * (state.nollie ? -1 : 1);
+  const bsfs = dispSpin > 0 ? 'Backside' : dispSpin < 0 ? 'Frontside' : '&mdash;';
+  $('infoSpec').innerHTML =
+    `flip <b>${sgn(tr.flipDeg)}&deg;</b> &middot; spin <b>${sgn(dispSpin)}&deg;</b> &middot; ${bsfs}` +
+    ` &middot; air ${tr.airtime}s`;
+  const card = (label, color, glyph, text, id) => `
+    <div class="cuecard"${id ? ` id="${id}" title="click to jump to this moment"` : ''}><p class="cuelabel">${color
+      ? `<span class="dot" style="background:${color}"></span>` : glyph}${label}</p>
+    <p class="cueval">${text}</p></div>`;
+  // in nollie the popping foot (these "back foot" mechanics) is the rider's
+  // FRONT foot at the nose — relabel and recolor the cards to match the scene
+  const nol = state.nollie;
+  $('cues').innerHTML =
+    card(nol ? 'Front foot — pops the nose' : 'Back foot', nol ? '#1D9E75' : '#D85A30', '', nolSwap(tr.back), 'cueBack') +
+    card(nol ? 'Back foot' : 'Front foot', nol ? '#D85A30' : '#1D9E75', '', nolSwap(tr.front), 'cueFront') +
+    card('The motion', null, '&#8594;&nbsp;', nolSwap(tr.motion), 'cueMotion') +
+    card('Key tip', null, '&#9733;&nbsp;', nolSwap(tr.tip));
+  // cue text ↔ 3D moment: click a card to jump where it happens
+  const jump = (tt, play = false) => { state.t = tt; state.playing = play; updatePlayBtn(); };
+  $('cueBack').onclick = () => jump(0.10);
+  $('cueFront').onclick = () => jump(tr.flick ? flickContactT(tr) - 0.02 : 0.22);
+  $('cueMotion').onclick = () => jump(0, true);
+  const mk = MIRRORS[state.trick];
+  $('mirrorBtn').style.display = mk ? '' : 'none';
+  if (mk) $('mirrorBtn').innerHTML = '&#8644; ' + TRICKS[mk].name;
+}
+refreshInfo();
+
+const playBtn = $('play');
+const updatePlayBtn = () => playBtn.textContent = state.playing ? '⏸ pause' : '▶ play';
+playBtn.onclick = () => {
+  if (!state.playing && state.t >= 1) state.t = 0;
+  state.playing = !state.playing;
+  updatePlayBtn();
+};
+updatePlayBtn();
+$('loop').checked = state.loop;
+$('loop').onchange = e => state.loop = e.target.checked;
+$('feet').checked = state.feet;
+$('feet').onchange = e => { state.feet = e.target.checked; syncURL(); };
+$('pressure').checked = state.pressure;
+$('pressure').onchange = e => { state.pressure = e.target.checked; syncURL(); };
+$('legs').checked = state.legs;
+$('legs').onchange = e => { state.legs = e.target.checked; syncURL(); };
+$('collide').checked = state.collide;
+$('collide').onchange = e => { state.collide = e.target.checked; syncURL(); };
+$('roll').checked = state.rolling;
+$('roll').onchange = e => { state.rolling = e.target.checked; syncURL(); };
+$('switchst').checked = state.switchStance;
+$('switchst').onchange = e => { state.switchStance = e.target.checked; syncURL(); };
+$('slowmo').onchange = e => state.slowmo = e.target.checked;
+$('slowmoSpeed').oninput = e => state.slowmoSpeed = parseFloat(e.target.value);
+state.slowmoSpeed = parseFloat($('slowmoSpeed').value);
+$('speed').oninput = e => state.speed = parseFloat(e.target.value);
+state.speed = parseFloat($('speed').value);
+// scrubbing is a peek, not a stop: resume if we were playing
+let scrubWasPlaying = false;
+$('scrub').onpointerdown = () => scrubWasPlaying = state.playing;
+$('scrub').oninput = e => { state.t = parseFloat(e.target.value); state.playing = false; updatePlayBtn(); };
+$('scrub').onchange = () => { if (scrubWasPlaying) { state.playing = true; updatePlayBtn(); } };
+document.querySelectorAll('[data-cam]').forEach(b => b.onclick = () => { setCam(b.dataset.cam); syncURL(); });
+$('mirrorBtn').onclick = () => setTrick(MIRRORS[state.trick]);
+$('ghosts').checked = state.ghosts;
+$('ghosts').onchange = e => { state.ghosts = e.target.checked; syncURL(); };
+$('nollie').checked = state.nollie;
+$('nollie').onchange = e => { state.nollie = e.target.checked; refreshInfo(); syncURL(); };
+
+// keyboard: space play/pause · arrows step (shift = coarse) · 1-0 tricks · r restart
+addEventListener('keydown', e => {
+  if (/INPUT|TEXTAREA|SELECT/.test(e.target.tagName)) return;
+  if (e.code === 'Space') { e.preventDefault(); playBtn.onclick(); }
+  else if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
+    state.t = clamp01(state.t + (e.key === 'ArrowRight' ? 1 : -1) * (e.shiftKey ? 0.05 : 0.01));
+    state.playing = false; updatePlayBtn();
+  } else if (e.key === 'r') state.t = 0;
+  else if (/^[0-9]$/.test(e.key)) {
+    const k = Object.keys(TRICKS)[e.key === '0' ? 9 : +e.key - 1];
+    if (k) setTrick(k);
+  }
+});
+
+// tap (not drag) the canvas to play/pause
+let tapInfo = null;
+renderer.domElement.addEventListener('pointerdown', e => tapInfo = { x: e.clientX, y: e.clientY, at: performance.now() });
+renderer.domElement.addEventListener('pointerup', e => {
+  if (tapInfo && performance.now() - tapInfo.at < 250 &&
+      Math.hypot(e.clientX - tapInfo.x, e.clientY - tapInfo.y) < 6) playBtn.onclick();
+  tapInfo = null;
+});
+
+// keep the URL shareable: trick/cam/toggles (not t — it changes every frame)
+function syncURL() {
+  const p = new URLSearchParams();
+  p.set('trick', state.trick);
+  if (curCam && curCam !== 'three') p.set('cam', curCam);
+  if (state.switchStance) p.set('stance', 'switch');
+  for (const [key, param] of [['feet', 'feet'], ['legs', 'legs'], ['pressure', 'pressure']])
+    if (!state[key]) p.set(param, '0');
+  for (const [key, param] of [['rolling', 'roll'], ['ghosts', 'ghosts'], ['collide', 'collide'], ['nollie', 'nollie']])
+    if (state[key]) p.set(param, '1');
+  history.replaceState(null, '', '?' + p.toString());
+}
+
+addEventListener('resize', () => {
+  camera.aspect = innerWidth / innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+});
+
+// hook for headless screenshot tests
+window.__viz = {
+  set(o) { Object.assign(state, o); if ('t' in o) state.playing = false; refreshInfo(); rebuildTune(); rebuildSpinArc(); refreshPhaseMarkers(); updatePlayBtn(); },
+  setCam, state,
+};
+
+/* ================================================================== */
+/* LOOP                                                               */
+/* ================================================================== */
+// Regular stance mirrors the internal frame across the YZ plane: negate x of
+// the position and the y/z quaternion components (the reflection of a rigid
+// pose). All meshes are X-symmetric, so mirroring poses is sufficient.
+function setPose(obj, p, mirror) {
+  obj.position.copy(p.pos);
+  obj.quaternion.copy(p.quat);
+  if (state.nollie) {
+    // nollie = z-mirror of the mechanics about the roll origin: the board pops
+    // its LEADING end (the nose pitches to the ground) while travel stays +Z
+    obj.position.z = 2 * (p.rollZ ?? 0) - obj.position.z;
+    obj.quaternion.x = -obj.quaternion.x;
+    obj.quaternion.y = -obj.quaternion.y;
+  }
+  if (mirror) {
+    obj.position.x = -obj.position.x;
+    obj.quaternion.y = -obj.quaternion.y;
+    obj.quaternion.z = -obj.quaternion.z;
+  }
+}
+
+function apply() {
+  const t = state.t;
+  const mirror = !state.switchStance;
+  const bp = boardPose(state.trick, t, state.rolling);
+  setPose(board, bp, mirror);
+
+  // setup lean: deck rolls over the trucks; hangers counter-steer (front
+  // toward the lean, back away — carving geometry), wheels stay planted.
+  // Child rotations are local, so the stance mirror flips their sign.
+  const lean = leanAt(state.trick, t) * (mirror ? -1 : 1);
+  const nolS = state.nollie ? -1 : 1;  // z-mirror flips yaw-type child rotations
+  board.userData.deckTilt.rotation.z = -lean;
+  board.userData.truckF.rotation.y = lean * 0.9 * nolS;
+  board.userData.truckB.rotation.y = -lean * 0.9 * nolS;
+
+  blob.position.x = board.position.x;
+  blob.position.z = board.position.z;
+  const h = clamp01((bp.pos.y - RIDE_H) / 0.85);
+  blob.material.opacity = 0.30 * (1 - h) + 0.04;
+  blob.scale.setScalar(1 + h * 0.6);
+
+  // onion-skin ghosts of the board's recent rotation
+  for (const [i, g] of ghostDecks.entries()) {
+    const tt = t - 0.05 * (i + 1);
+    g.visible = state.ghosts && tt > PH.launch && t < TRICKS[state.trick].catchT;
+    if (g.visible) setPose(g, boardPose(state.trick, tt, state.rolling), mirror);
+  }
+
+  // spin-direction arc under the board, fading in through the flight
+  if (spinArc.userData.mat) {
+    spinArc.position.x = board.position.x;
+    spinArc.position.z = board.position.z;
+    spinArc.scale.x = (spinArc.userData.dir || 1) * (mirror ? -1 : 1) * (state.nollie ? -1 : 1);
+    spinArc.userData.mat.opacity = 0.55 * seg(t, PH.launch, 0.30) * (1 - seg(t, PH.catch, PH.land));
+  }
+
+  // keep the camera target with the rolling board
+  if (!camTween) controls.target.z += (board.position.z - controls.target.z) * 0.06;
+
+  footFront.visible = footBack.visible = state.feet;
+  const showLegs = state.feet && state.legs;
+  legFront.group.visible = legBack.group.visible = pelvis.visible = showLegs;
+  if (!state.feet) trailFront.visible = trailBack.visible = false;
+  else {
+    // nollie: the mechanical popper (our 'back' pose) is the RIDER'S front
+    // foot — swap which mesh/trail/leg renders which mechanical foot
+    const nol = state.nollie;
+    const meshF = nol ? footBack : footFront, meshB = nol ? footFront : footBack;
+    setPose(nol ? footBack : footFront, footPose(state.trick, 'front', t, state.rolling), mirror);
+    setPose(nol ? footFront : footBack, footPose(state.trick, 'back', t, state.rolling), mirror);
+    // a reflected pose needs reflected geometry too, or toes point backwards
+    footFront.scale.z = footBack.scale.z = nol ? -1 : 1;
+
+    if (showLegs) {
+      const rp = riderPose(state.trick, t, state.rolling);
+      const by = bodyYawAt(state.trick, t);
+      const mir = v => {
+        if (state.nollie) v.z = 2 * bp.rollZ - v.z;
+        if (mirror) v.x = -v.x;
+        return v;
+      };
+      const setSeg = (mesh, a, b) => {
+        mesh.position.copy(a).lerp(b, 0.5);
+        const d = b.clone().sub(a);
+        mesh.scale.y = Math.max(d.length(), 0.01);
+        mesh.quaternion.setFromUnitVectors(Y_AXIS, d.normalize());
+      };
+      pelvis.position.copy(mir(rp.pos.clone()));
+      pelvis.rotation.y = by * (mirror ? -1 : 1) * nolS;
+      const pairs = nol
+        ? [[legFront, rp.aB, -HIP_HALF, -0.35], [legBack, rp.aF, HIP_HALF, 0.35]]
+        : [[legFront, rp.aF, HIP_HALF, 0.35], [legBack, rp.aB, -HIP_HALF, -0.35]];
+      for (const [leg, ankle, hz, poleZ] of pairs) {
+        // hips and knee poles rotate with the body (bigspin)
+        const hip = rp.pos.clone().add(
+          new THREE.Vector3(hz * Math.sin(by), -0.05, hz * Math.cos(by)));
+        const pole = new THREE.Vector3(Math.cos(by) + poleZ * Math.sin(by), 0.1,
+          -Math.sin(by) + poleZ * Math.cos(by)).normalize();
+        const knee = solveKnee(hip, ankle, pole);
+        mir(hip); mir(knee); mir(ankle);
+        leg.hip.position.copy(hip);
+        leg.knee.position.copy(knee);
+        setSeg(leg.thigh, hip, knee);
+        setSeg(leg.shin, knee, ankle);
+      }
+    }
+    const tr = TRICKS[state.trick];
+    for (const [foot, trail, which, px, riseT, endT, startT] of [
+      [meshF, nol ? trailBack : trailFront, 'front', tr.fp, tr.riseEndF, tr.flick ? flickContactT(tr) + 0.065 : tr.drag ? 0.42 : 0.35, 0.10],
+      [meshB, nol ? trailFront : trailBack, 'back', tr.bp, tr.riseEnd, tr.scoop ? 0.32 : 0.26, 0.14],
+    ]) {
+      const p = foot.userData.press;
+      p.group.visible = state.pressure;
+      const r = px * FOOT_PX2M;
+      const force = 1 - seg(t, PH.launch + 0.05, riseT); // pressure is spent once the foot's action ends
+      // light up the cue card of the foot that's working right now
+      $(which === 'front' ? 'cueFront' : 'cueBack')
+        ?.classList.toggle('hot', t > 0.05 && force > 0.5 && t < tr.catchT);
+      // rings radiate while force is applied; one flash burst at the moment
+      // it lands (tail strike / flick contact) — all pure in t, scrub-safe
+      const radiate = seg(t, 0.06, 0.12) * force;
+      const flashT = which === 'back' ? PH.launch : (tr.flick ? 0.28 : PH.launch);
+      const flash = seg(t, flashT - 0.015, flashT) * (1 - seg(t, flashT, flashT + 0.05));
+      const pulse = r * (1 + 0.4 * flash);
+      p.disc.scale.set(pulse, 1, pulse);
+      p.mats[0].opacity = 0.55 * (0.3 + 0.7 * force) + 0.45 * flash;
+      p.mats[1].opacity = 0.95 * (0.3 + 0.7 * force);
+      for (const [i, ring] of p.rings.entries()) {
+        const ph = (t * 12 + i / 3) % 1;
+        ring.scale.setScalar(r * (1 + 1.8 * ph));
+        ring.material.opacity = 0.9 * radiate * (1 - ph);
+      }
+      // trail: the pressure point's path so far, up to where its action ends —
+      // hangs in the air while the board flips, fades at the catch
+      const tEnd = Math.min(t, endT);
+      trail.visible = state.pressure && tEnd > startT + 0.02;
+      if (trail.visible) {
+        const fade = 1 - seg(t, PH.catch - 0.08, PH.catch);
+        const local = p.group.position;
+        trail.children.forEach((m, i) => {
+          const f = i / (TRAIL_N - 1);
+          const fp = footPose(state.trick, which, THREE.MathUtils.lerp(startT, tEnd, f), state.rolling);
+          const w = local.clone().applyQuaternion(fp.quat).add(fp.pos);
+          if (state.nollie) w.z = 2 * fp.rollZ - w.z;
+          if (mirror) w.x = -w.x;
+          m.position.copy(w);
+          m.scale.setScalar(0.005 + 0.009 * f);
+          m.material.opacity = (0.12 + 0.55 * f) * fade;
+        });
+      }
+    }
+  }
+  $('scrub').value = t;
+  const phName = (PHASES.find(([, a, b2]) => t >= a && t < b2) || PHASES[PHASES.length - 1])[0];
+  $('tlabel').textContent = phName + ' · ' + t.toFixed(2);
+}
+
+let last = performance.now();
+function tick(now) {
+  requestAnimationFrame(tick);
+  const dt = Math.min((now - last) / 1000, 0.1);
+  last = now;
+  if (state.playing) {
+    // slow-mo envelope centered on the flick (corner slide 0.20-0.28, contact
+    // 0.28, kick-out to 0.345): full 0.25x through 0.20-0.34, smooth ramps
+    let slow = 1;
+    if (state.slowmo) {
+      const env = Math.min(seg(state.t, 0.16, 0.20), 1 - seg(state.t, 0.34, 0.38));
+      slow = THREE.MathUtils.lerp(1, state.slowmoSpeed, env);
+    }
+    state.t += dt * state.speed * slow / trickDuration(TRICKS[state.trick]);
+    if (state.t > 1) {
+      if (state.loop) state.t -= 1;
+      else { state.t = 1; state.playing = false; updatePlayBtn(); }
+    }
+  }
+  apply();
+  if (camTween) {  // ease toward the selected camera preset
+    const k = Math.min(1, dt * 6);
+    camera.position.lerp(camTween.pos, k);
+    controls.target.lerp(camTween.tgt, k);
+    if (camera.position.distanceTo(camTween.pos) < 0.005) camTween = null;
+  }
+  controls.update();
+  renderer.render(scene, camera);
+}
+requestAnimationFrame(tick);
+</script>
+</body>
+</html>
